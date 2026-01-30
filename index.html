@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zuma Game | Telegram</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh; 
+            background: #1a1a2e; 
+            font-family: Arial, sans-serif;
+        }
+        #gameContainer { 
+            position: relative; 
+            border-radius: 10px; 
+            overflow: hidden; 
+        }
+        canvas { 
+            display: block; 
+            background: #0f3460; 
+            max-width: 100%; 
+            height: auto; 
+        }
+        .controls { 
+            position: absolute; 
+            top: 20px; 
+            left: 20px; 
+            color: white; 
+            background: rgba(0,0,0,0.5); 
+            padding: 10px; 
+            border-radius: 5px; 
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div class="controls">
+            Очки: <span id="score">0</span> | 
+            Уровень: <span id="level">1</span>
+        </div>
+    </div>
+    
+    <script>
+        // Telegram Web App интеграция
+        if (typeof Telegram !== 'undefined') {
+            Telegram.WebApp.ready();
+            Telegram.WebApp.expand();
+        }
+    </script>
+    <script src="zuma-engine.js"></script>
+</body>
+</html>
