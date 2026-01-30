@@ -2,882 +2,175 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, minimum-scale=0.5, user-scalable=yes">
-    <title>Zuma Frog Game</title>
-    
-    <!-- Favicon -->
-    <link rel="icon" href="favicon.ico" type="image/x-icon">
-    
-    <!-- Google Font для красивого шрифта -->
-    <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zuma Frog</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
 
     <style>
-    * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-        -webkit-tap-highlight-color: transparent;
-        -webkit-user-select: none;
-        -moz-user-select: none;
-        -ms-user-select: none;
-        user-select: none;
-        touch-action: manipulation;
-    }
-    
-    html, body {
-        width: 100%;
-        height: 100%;
-        overflow: hidden;
-        background: linear-gradient(135deg, #e0f7fa 0%, #bbdefb 100%);
-        font-family: 'Nunito', 'Comic Neue', 'Segoe UI', sans-serif;
-    }
-    
-    body {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        min-height: 100vh;
-        padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-        -webkit-text-size-adjust: 100%;
-        -ms-text-size-adjust: 100%;
-    }
-    
-    /* Контейнер игры */
-    #gameContainer {
-        position: relative;
-        border-radius: 25px;
-        overflow: hidden;
-        box-shadow: 
-            0 25px 50px rgba(0, 0, 0, 0.15),
-            0 0 0 6px #81c784,
-            0 0 0 12px rgba(129, 199, 132, 0.3);
-        max-width: 100%;
-        max-height: 100vh;
-        background: linear-gradient(135deg, #c8e6c9 0%, #a5d6a7 100%);
-        aspect-ratio: 4/3;
-        width: min(800px, 95vw, 95vh * 1.333);
-        height: auto;
-        display: none; /* Скрыт по умолчанию */
-    }
-    
-    /* Стартовый экран */
-    #startScreen {
-        position: relative;
-        width: min(800px, 95vw, 95vh * 1.333);
-        height: min(600px, 90vh, 90vw * 0.75);
-        background: linear-gradient(135deg, #a5d6a7 0%, #81c784 50%, #66bb6a 100%);
-        border-radius: 25px;
-        overflow: hidden;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: space-between;
-        padding: 40px 20px;
-    }
-    
-    /* Заголовок */
-    .game-title {
-        text-align: center;
-        color: white;
-        text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.3);
-        margin-top: 20px;
-    }
-    
-    .game-title h1 {
-        font-size: min(8vw, 48px);
-        font-weight: 900;
-        margin-bottom: 10px;
-        color: #ffeb3b;
-    }
-    
-    .game-title h2 {
-        font-size: min(4vw, 24px);
-        font-weight: 700;
-        color: #e8f5e9;
-    }
-    
-    /* Контейнер для лягушки на стартовом экране */
-    .frog-container {
-        position: relative;
-        width: min(60vw, 300px);
-        height: min(60vw, 300px);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-    }
-    
-    /* Лягушка на стартовом экране */
-    .start-frog {
-        width: 100%;
-        height: 100%;
-        position: relative;
-        animation: float 3s ease-in-out infinite;
-    }
-    
-    @keyframes float {
-        0%, 100% { transform: translateY(0px) rotate(-5deg); }
-        50% { transform: translateY(-20px) rotate(5deg); }
-    }
-    
-    /* Статистика */
-    .stats {
-        background: rgba(255, 255, 255, 0.9);
-        padding: min(4vw, 20px);
-        border-radius: 20px;
-        text-align: center;
-        margin: 20px 0;
-        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
-        width: 80%;
-    }
-    
-    .stats h3 {
-        color: #388e3c;
-        font-size: min(5vw, 24px);
-        margin-bottom: 10px;
-    }
-    
-    .high-score {
-        font-size: min(6vw, 32px);
-        font-weight: 900;
-        color: #ff9800;
-        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
-    }
-    
-    /* Кнопка старта */
-    .start-button {
-        background: linear-gradient(135deg, #ff9800, #ffb74d);
-        border: none;
-        border-radius: 50px;
-        padding: min(4vw, 20px) min(8vw, 60px);
-        font-size: min(5vw, 28px);
-        font-weight: 900;
-        color: white;
-        cursor: pointer;
-        box-shadow: 0 10px 20px rgba(255, 152, 0, 0.4);
-        transition: all 0.3s;
-        text-transform: uppercase;
-        letter-spacing: 2px;
-        margin-bottom: 30px;
-    }
-    
-    .start-button:hover, .start-button:active {
-        transform: translateY(-5px) scale(1.05);
-        box-shadow: 0 15px 30px rgba(255, 152, 0, 0.6);
-        background: linear-gradient(135deg, #ffb74d, #ff9800);
-    }
-    
-    /* Декоративные элементы */
-    .water-lily {
-        position: absolute;
-        width: min(20vw, 100px);
-        height: min(10vw, 50px);
-        background: #81c784;
-        border-radius: 50%;
-        opacity: 0.7;
-    }
-    
-    .lily-1 { top: 10%; left: 5%; transform: rotate(20deg); }
-    .lily-2 { top: 15%; right: 8%; transform: rotate(-15deg); }
-    .lily-3 { bottom: 25%; left: 10%; transform: rotate(10deg); }
-    .lily-4 { bottom: 20%; right: 12%; transform: rotate(-20deg); }
-    
-    /* Canvas игры */
-    #gameCanvas {
-        display: block;
-        width: 100%;
-        height: 100%;
-        touch-action: none;
-    }
-    
-    /* UI в игре */
-    #ui {
-        position: absolute;
-        top: 20px;
-        left: 20px;
-        color: white;
-        z-index: 10;
-        font-size: min(4vw, 20px);
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-        background: rgba(56, 142, 60, 0.8);
-        padding: min(2vw, 12px) min(3vw, 18px);
-        border-radius: 15px;
-        backdrop-filter: blur(5px);
-        -webkit-backdrop-filter: blur(5px);
-        pointer-events: none;
-        white-space: nowrap;
-        font-weight: 700;
-        border: 2px solid rgba(255, 255, 255, 0.3);
-    }
-    
-    /* Кнопки управления в игре */
-    .game-buttons {
-        position: absolute;
-        bottom: 20px;
-        right: 20px;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        z-index: 100;
-    }
-    
-    .game-btn {
-        padding: min(2vw, 12px) min(3vw, 20px);
-        background: rgba(255, 255, 255, 0.95);
-        border: 2px solid #4caf50;
-        border-radius: 50px;
-        color: #388e3c;
-        font-size: min(3.5vw, 18px);
-        font-weight: bold;
-        cursor: pointer;
-        box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
-        transition: all 0.2s;
-        font-family: inherit;
-        touch-action: manipulation;
-        -webkit-appearance: none;
-        appearance: none;
-        min-height: 44px;
-        min-width: 44px;
-    }
-    
-    .game-btn:hover, .game-btn:active {
-        background: rgba(76, 175, 80, 0.95);
-        color: white;
-        transform: translateY(-2px);
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
-    }
-    
-    /* Мобильные кнопки */
-    .mobile-controls {
-        display: none;
-        position: absolute;
-        bottom: max(20px, env(safe-area-inset-bottom));
-        left: 0;
-        right: 0;
-        justify-content: space-around;
-        padding: 0 min(5vw, 25px);
-        z-index: 100;
-        gap: min(5vw, 20px);
-    }
-    
-    .mobile-btn {
-        width: min(20vw, 80px);
-        height: min(20vw, 80px);
-        border-radius: 50%;
-        background: rgba(255, 255, 255, 0.95);
-        border: 3px solid #4caf50;
-        color: #388e3c;
-        font-size: min(8vw, 36px);
-        font-weight: bold;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        box-shadow: 
-            0 8px 20px rgba(0, 0, 0, 0.2),
-            inset 0 2px 4px rgba(255, 255, 255, 0.8);
-        transition: all 0.1s;
-        touch-action: manipulation;
-        -webkit-touch-callout: none;
-        user-select: none;
-        min-height: 44px;
-        min-width: 44px;
-    }
-    
-    .mobile-btn:active {
-        transform: scale(0.92);
-        background: rgba(76, 175, 80, 0.95);
-        color: white;
-        box-shadow: 
-            0 4px 12px rgba(0, 0, 0, 0.15),
-            inset 0 2px 6px rgba(255, 255, 255, 0.6);
-    }
-    
-    #shootBtn {
-        background: linear-gradient(135deg, #ff9800, #ffb74d);
-        border-color: #ff9800;
-        color: white;
-        font-size: min(6vw, 28px);
-        width: min(22vw, 90px);
-        height: min(22vw, 90px);
-    }
-    
-    /* Адаптация для маленьких экранов */
-    @media (max-width: 768px), (max-height: 600px) {
-        #gameContainer, #startScreen {
-            border-radius: 0;
-            width: 100vw;
-            height: 100vh;
-            max-width: 100%;
-            max-height: 100%;
-            box-shadow: none;
-            border: none;
-            aspect-ratio: unset;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
         }
-        
-        #startScreen {
-            padding: 20px 15px;
-            justify-content: space-around;
-        }
-        
-        .game-title h1 {
-            font-size: min(10vw, 40px);
-        }
-        
-        .game-title h2 {
-            font-size: min(5vw, 20px);
-        }
-        
-        .frog-container {
-            width: min(70vw, 250px);
-            height: min(70vw, 250px);
-        }
-        
-        .stats {
-            padding: 15px;
-            width: 90%;
-        }
-        
-        .stats h3 {
-            font-size: min(5vw, 20px);
-        }
-        
-        .high-score {
-            font-size: min(7vw, 28px);
-        }
-        
-        .start-button {
-            padding: 15px 40px;
-            font-size: min(6vw, 24px);
-            margin-bottom: 20px;
-        }
-        
-        #ui {
-            top: max(10px, env(safe-area-inset-top));
-            left: max(10px, env(safe-area-inset-left));
-            font-size: min(4.5vw, 18px);
-            padding: min(2.5vw, 10px) min(4vw, 15px);
-        }
-        
-        .mobile-controls {
-            display: flex;
-        }
-        
-        .game-buttons {
-            bottom: max(100px, calc(20vw + env(safe-area-inset-bottom)));
-            right: max(10px, env(safe-area-inset-right));
-            flex-direction: row;
-        }
-        
-        .game-btn {
-            padding: min(2.5vw, 10px) min(4vw, 15px);
-            font-size: min(4vw, 16px);
-        }
-    }
-    
-    /* Пейзажная ориентация */
-    @media (orientation: landscape) and (max-height: 500px) {
-        #gameContainer, #startScreen {
-            height: 100vh;
-            width: auto;
-        }
-        
-        #startScreen {
-            flex-direction: row;
-            padding: 20px;
-            justify-content: space-around;
-        }
-        
-        .game-title {
-            flex: 1;
-            margin-top: 0;
-        }
-        
-        .frog-container {
-            flex: 1;
-            width: auto;
-            height: 80%;
-        }
-        
-        .stats {
-            flex: 1;
-            margin: 0 20px;
-        }
-        
-        .start-button {
-            flex: 1;
-            margin: 0 10px;
-            padding: 15px;
-            font-size: min(4vh, 20px);
-        }
-        
-        .mobile-controls {
-            bottom: max(10px, env(safe-area-inset-bottom));
-            padding: 0 min(3vw, 15px);
-        }
-        
-        .mobile-btn {
-            width: min(15vh, 60px);
-            height: min(15vh, 60px);
-            font-size: min(6vh, 24px);
-        }
-        
-        #shootBtn {
-            width: min(17vh, 70px);
-            height: min(17vh, 70px);
-            font-size: min(5vh, 20px);
-        }
-        
-        #ui {
-            font-size: min(3vh, 16px);
-        }
-        
-        .game-buttons {
-            bottom: max(10px, env(safe-area-inset-bottom));
-            right: max(10px, env(safe-area-inset-right));
-        }
-    }
-    
-    /* Анимации */
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(20px) scale(0.95); }
-        to { opacity: 1; transform: translateY(0) scale(1); }
-    }
-    
-    #gameContainer, #startScreen {
-        animation: fadeIn 0.8s ease-out;
-    }
-    
-    /* Предотвращение выделения текста */
-    * {
-        -webkit-touch-callout: none;
-        -webkit-user-select: none;
-        user-select: none;
-    }
-    
-    /* Безопасная область */
-    @supports (padding: max(0px)) {
+
         body {
-            padding-left: min(0vmin, env(safe-area-inset-left));
-            padding-right: min(0vmin, env(safe-area-inset-right));
-            padding-top: min(0vmin, env(safe-area-inset-top));
-            padding-bottom: min(0vmin, env(safe-area-inset-bottom));
+            font-family: 'Nunito', sans-serif;
+            background: linear-gradient(135deg, #d0f0f5, #b2dfdb);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
         }
-    }
+
+        #startScreen, #gameContainer {
+            width: 800px;
+            height: 600px;
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0,0,0,.25);
+        }
+
+        #startScreen {
+            background: linear-gradient(135deg, #a5d6a7, #66bb6a);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #fff59d;
+            font-size: 48px;
+            text-shadow: 2px 2px 6px rgba(0,0,0,.3);
+        }
+
+        .start-button {
+            background: #ffb74d;
+            border: none;
+            padding: 18px 50px;
+            font-size: 26px;
+            border-radius: 50px;
+            color: white;
+            font-weight: 900;
+            cursor: pointer;
+            box-shadow: 0 10px 20px rgba(0,0,0,.3);
+        }
+
+        #gameContainer {
+            display: none;
+            position: relative;
+            background: radial-gradient(circle, #b2dfdb 0%, #4db6ac 100%);
+        }
+
+        #gameCanvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        #ui {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(56,142,60,.85);
+            color: white;
+            padding: 10px 16px;
+            border-radius: 14px;
+            font-weight: 700;
+        }
+
+        .game-buttons {
+            position: absolute;
+            bottom: 15px;
+            right: 15px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .game-btn {
+            padding: 10px 14px;
+            border-radius: 50%;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        /* WIN SCREEN */
+        .overlay-screen {
+            position: fixed;
+            inset: 0;
+            background: rgba(20, 60, 40, 0.85);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+        }
+
+        .win-card {
+            background: linear-gradient(135deg, #c8e6c9, #a5d6a7);
+            padding: 30px 40px;
+            border-radius: 25px;
+            text-align: center;
+        }
+
+        .win-card h2 {
+            color: #2e7d32;
+            margin-bottom: 10px;
+        }
+
+        .win-card button {
+            margin: 10px;
+            padding: 12px 25px;
+            border-radius: 30px;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            background: #ffb74d;
+            color: white;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
-    <!-- Стартовый экран -->
-    <div id="startScreen">
-        <div class="game-title">
-            <h1>🐸 ZUMA FROG</h1>
-            <h2>Спаси цветок от шариков!</h2>
-        </div>
-        
-        <!-- Декоративные лилии -->
-        <div class="water-lily lily-1"></div>
-        <div class="water-lily lily-2"></div>
-        <div class="water-lily lily-3"></div>
-        <div class="water-lily lily-4"></div>
-        
-        <!-- Анимированная лягушка -->
-        <div class="frog-container">
-            <div class="start-frog" id="animatedFrog"></div>
-        </div>
-        
-        <!-- Статистика -->
-        <div class="stats">
-            <h3>🏆 ЛУЧШИЙ СЧЕТ</h3>
-            <div class="high-score" id="highScore">0</div>
-        </div>
-        
-        <!-- Кнопка начала игры -->
-        <button class="start-button" id="startButton">НАЧАТЬ ИГРУ</button>
+
+<div id="startScreen">
+    <h1>🐸 ZUMA FROG</h1>
+    <button class="start-button" id="startButton">НАЧАТЬ ИГРУ</button>
+</div>
+
+<div id="gameContainer">
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+    <div id="ui">
+        🎯 <span id="score">0</span> |
+        🚀 <span id="level">1</span> |
+        ❤️ <span id="lives">3</span>
     </div>
-    
-    <!-- Игровой экран -->
-    <div id="gameContainer">
-        <canvas id="gameCanvas" width="800" height="600"></canvas>
-        
-        <div class="game-buttons">
-            <button id="restartButton" class="game-btn" title="Рестарт игры">🔄</button>
-            <button id="pauseButton" class="game-btn" title="Пауза">⏸</button>
-            <button id="menuButton" class="game-btn" title="В меню">🏠</button>
-        </div>
-        
-        <div id="ui">
-            🎯 <span id="score">0</span> | 
-            🚀 <span id="level">1</span> |
-            ❤️ <span id="lives">5</span>
-        </div>
-        
-        <!-- Мобильные кнопки -->
-        <div class="mobile-controls">
-            <button class="mobile-btn" id="rotateLeft" title="Повернуть влево">←</button>
-            <button class="mobile-btn" id="shootBtn" title="Выстрелить">FIRE</button>
-            <button class="mobile-btn" id="rotateRight" title="Повернуть вправо">→</button>
-        </div>
+
+    <div class="game-buttons">
+        <button id="pauseButton" class="game-btn">⏸</button>
+        <button id="menuButton" class="game-btn">🏠</button>
     </div>
-    
-    <!-- Telegram Web App SDK -->
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    
-    <!-- Игровой движок -->
-    <script src="zuma-engine.js?v=3.0"></script>
-    
-    <script>
-        console.log('Initializing Zuma Frog Game...');
-        
-        // Лучший счет из localStorage
-        let highScore = localStorage.getItem('zumaHighScore') || 0;
-        document.getElementById('highScore').textContent = highScore;
-        
-        // Анимация лягушки на стартовом экране
-        function drawStartFrog() {
-            const container = document.getElementById('animatedFrog');
-            if (!container) return;
-            
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            const size = Math.min(container.clientWidth, container.clientHeight);
-            
-            canvas.width = size;
-            canvas.height = size;
-            container.innerHTML = '';
-            container.appendChild(canvas);
-            
-            // Анимированная отрисовка лягушки
-            function drawFrog(time) {
-                ctx.clearRect(0, 0, size, size);
-                
-                const centerX = size / 2;
-                const centerY = size / 2;
-                const scale = size / 200;
-                const blink = Math.sin(time * 0.005) > 0.8;
-                
-                // Тело
-                ctx.fillStyle = '#4CAF50';
-                ctx.beginPath();
-                ctx.ellipse(centerX, centerY, 80 * scale, 60 * scale, 0, 0, Math.PI * 2);
-                ctx.fill();
-                
-                // Голова
-                ctx.beginPath();
-                ctx.arc(centerX + 45 * scale, centerY, 50 * scale, 0, Math.PI * 2);
-                ctx.fill();
-                
-                // Глаза
-                ctx.fillStyle = 'white';
-                ctx.beginPath();
-                ctx.arc(centerX + 65 * scale, centerY - 25 * scale, 20 * scale, 0, Math.PI * 2);
-                ctx.arc(centerX + 65 * scale, centerY + 25 * scale, 20 * scale, 0, Math.PI * 2);
-                ctx.fill();
-                
-                // Зрачки
-                if (!blink) {
-                    ctx.fillStyle = '#222';
-                    ctx.beginPath();
-                    ctx.arc(centerX + 70 * scale, centerY - 25 * scale, 10 * scale, 0, Math.PI * 2);
-                    ctx.arc(centerX + 70 * scale, centerY + 25 * scale, 10 * scale, 0, Math.PI * 2);
-                    ctx.fill();
-                } else {
-                    // Моргание
-                    ctx.fillStyle = '#4CAF50';
-                    ctx.fillRect(centerX + 55 * scale, centerY - 30 * scale, 20 * scale, 5 * scale);
-                    ctx.fillRect(centerX + 55 * scale, centerY + 25 * scale, 20 * scale, 5 * scale);
-                }
-                
-                // Рот (улыбка)
-                ctx.strokeStyle = '#388E3C';
-                ctx.lineWidth = 4 * scale;
-                ctx.beginPath();
-                ctx.arc(centerX + 55 * scale, centerY + 10 * scale, 20 * scale, 0.2, Math.PI - 0.2);
-                ctx.stroke();
-                
-                // Щеки
-                ctx.fillStyle = '#81C784';
-                ctx.beginPath();
-                ctx.arc(centerX + 35 * scale, centerY - 10 * scale, 12 * scale, 0, Math.PI * 2);
-                ctx.arc(centerX + 35 * scale, centerY + 10 * scale, 12 * scale, 0, Math.PI * 2);
-                ctx.fill();
-                
-                // Лапки
-                ctx.fillStyle = '#388E3C';
-                ctx.beginPath();
-                ctx.ellipse(centerX - 40 * scale, centerY + 20 * scale, 25 * scale, 15 * scale, 0.5, 0, Math.PI * 2);
-                ctx.ellipse(centerX + 20 * scale, centerY + 30 * scale, 25 * scale, 15 * scale, -0.3, 0, Math.PI * 2);
-                ctx.fill();
-                
-                // Корона (для милоты)
-                ctx.fillStyle = '#FFD700';
-                ctx.beginPath();
-                ctx.moveTo(centerX + 75 * scale, centerY - 60 * scale);
-                ctx.lineTo(centerX + 95 * scale, centerY - 40 * scale);
-                ctx.lineTo(centerX + 85 * scale, centerY - 40 * scale);
-                ctx.lineTo(centerX + 95 * scale, centerY - 20 * scale);
-                ctx.lineTo(centerX + 75 * scale, centerY - 30 * scale);
-                ctx.lineTo(centerX + 55 * scale, centerY - 20 * scale);
-                ctx.lineTo(centerX + 65 * scale, centerY - 40 * scale);
-                ctx.lineTo(centerX + 55 * scale, centerY - 40 * scale);
-                ctx.closePath();
-                ctx.fill();
-                
-                requestAnimationFrame(drawFrog);
-            }
-            
-            drawFrog(0);
-        }
-        
-        // Проверка загрузки Telegram Web App
-        if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
-            console.log('Telegram Web App detected');
-            Telegram.WebApp.ready();
-            Telegram.WebApp.expand();
-            
-            // Настройка темы
-            Telegram.WebApp.setHeaderColor('#4CAF50');
-            Telegram.WebApp.setBackgroundColor('#A5D6A7');
-            
-            // Отправка данных в Telegram
-            window.sendScoreToTelegram = function(score) {
-                Telegram.WebApp.sendData(JSON.stringify({
-                    action: 'updateScore',
-                    score: score,
-                    level: window.game?.level || 1
-                }));
-            };
-        } else {
-            console.log('Running in standalone mode');
-        }
-        
-        // Масштабирование для мобильных устройств
-        function setupMobileScaling() {
-            const canvas = document.getElementById('gameCanvas');
-            const container = document.getElementById('gameContainer');
-            
-            function resizeCanvas() {
-                const containerWidth = container.clientWidth;
-                const containerHeight = container.clientHeight;
-                
-                // Сохраняем оригинальное соотношение сторон 4:3
-                const targetRatio = 4/3;
-                const currentRatio = containerWidth / containerHeight;
-                
-                let width, height;
-                
-                if (currentRatio > targetRatio) {
-                    // Широкий контейнер - ограничиваем по высоте
-                    height = containerHeight;
-                    width = height * targetRatio;
-                } else {
-                    // Высокий контейнер - ограничиваем по ширине
-                    width = containerWidth;
-                    height = width / targetRatio;
-                }
-                
-                // Устанавливаем размеры canvas
-                canvas.style.width = width + 'px';
-                canvas.style.height = height + 'px';
-                
-                // Центрируем canvas
-                canvas.style.marginLeft = ((containerWidth - width) / 2) + 'px';
-                canvas.style.marginTop = ((containerHeight - height) / 2) + 'px';
-            }
-            
-            // Ресайз при загрузке и изменении размера окна
-            window.addEventListener('load', resizeCanvas);
-            window.addEventListener('resize', resizeCanvas);
-            window.addEventListener('orientationchange', resizeCanvas);
-            
-            // Начальный ресайз
-            setTimeout(resizeCanvas, 100);
-        }
-        
-        // Переключение между экранами
-        function showGameScreen() {
-            document.getElementById('startScreen').style.display = 'none';
-            document.getElementById('gameContainer').style.display = 'block';
-            setupMobileScaling();
-            
-            if (!window.game) {
-                window.game = new ZumaGame('gameCanvas');
-                window.game.init();
-                setupGameControls();
-            }
-        }
-        
-        function showStartScreen() {
-            document.getElementById('startScreen').style.display = 'flex';
-            document.getElementById('gameContainer').style.display = 'none';
-            
-            // Обновляем лучший счет
-            const currentHighScore = localStorage.getItem('zumaHighScore') || 0;
-            document.getElementById('highScore').textContent = currentHighScore;
-        }
-        
-        // Настройка управления игрой
-        function setupGameControls() {
-            if (!window.game) return;
-            const canvas = document.getElementById('gameCanvas');
-            
-            // Обновление UI элементов
-            function updateGameUI() {
-                if (window.game) {
-                    document.getElementById('score').textContent = window.game.score;
-                    document.getElementById('level').textContent = window.game.level;
-                    document.getElementById('lives').textContent = Math.max(0, window.game.lives); // Фикс отрицательных жизней
-                    
-                    // Сохраняем лучший счет
-                    if (window.game.score > highScore) {
-                        highScore = window.game.score;
-                        localStorage.setItem('zumaHighScore', highScore);
-                    }
-                }
-            }
-            
-            // Кнопка рестарта
-            document.getElementById('restartButton').addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                if (window.game) {
-                    window.game.restartGame();
-                    updateGameUI();
-                }
-            });
-            
-            // Кнопка паузы
-            document.getElementById('pauseButton').addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                if (window.game) {
-                    window.game.isPaused = !window.game.isPaused;
-                    this.textContent = window.game.isPaused ? '▶' : '⏸';
-                    this.title = window.game.isPaused ? 'Продолжить' : 'Пауза';
-                }
-            });
-            
-            // Кнопка меню
-            document.getElementById('menuButton').addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                showStartScreen();
-            });
-            
-            // Мобильные кнопки управления
-            const rotateLeft = document.getElementById('rotateLeft');
-            const rotateRight = document.getElementById('rotateRight');
-            const shootBtn = document.getElementById('shootBtn');
-            
-            if (rotateLeft) {
-                rotateLeft.addEventListener('touchstart', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (window.game) {
-                        window.game.frog.angle += 8;
-                        window.game.frog.state = 'aiming';
-                        if (window.game.frog.angle > -30) window.game.frog.angle = -30;
-                    }
-                });
-            }
-            
-            if (rotateRight) {
-                rotateRight.addEventListener('touchstart', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (window.game) {
-                        window.game.frog.angle -= 8;
-                        window.game.frog.state = 'aiming';
-                        if (window.game.frog.angle < -150) window.game.frog.angle = -150;
-                    }
-                });
-            }
-            
-            if (shootBtn) {
-                shootBtn.addEventListener('touchstart', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (window.game && !window.game.gameOver && !window.game.isPaused) {
-                        window.game.shoot();
-                    }
-                });
-            }
-            
-            // Клавиатурные управления
-            document.addEventListener('keydown', function(e) {
-                if (!window.game) return;
-                
-                switch(e.code) {
-                    case 'Space':
-                    case 'KeyF':
-                        e.preventDefault();
-                        window.game.shoot();
-                        break;
-                    case 'ArrowLeft':
-                        e.preventDefault();
-                        window.game.frog.angle += 5;
-                        window.game.frog.state = 'aiming';
-                        if (window.game.frog.angle > -30) window.game.frog.angle = -30;
-                        break;
-                    case 'ArrowRight':
-                        e.preventDefault();
-                        window.game.frog.angle -= 5;
-                        window.game.frog.state = 'aiming';
-                        if (window.game.frog.angle < -150) window.game.frog.angle = -150;
-                        break;
-                    case 'KeyP':
-                        e.preventDefault();
-                        window.game.isPaused = !window.game.isPaused;
-                        document.getElementById('pauseButton').textContent = window.game.isPaused ? '▶' : '⏸';
-                        document.getElementById('pauseButton').title = window.game.isPaused ? 'Продолжить' : 'Пауза';
-                        break;
-                    case 'KeyR':
-                        e.preventDefault();
-                        window.game.restartGame();
-                        updateGameUI();
-                        break;
-                    case 'Escape':
-                        e.preventDefault();
-                        showStartScreen();
-                        break;
-                }
-            });
-            
-            // Периодическое обновление UI
-            setInterval(updateGameUI, 100);
-        }
-        
-        // Инициализация при загрузке
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM loaded, initializing game...');
-            
-            // Рисуем анимированную лягушку
-            drawStartFrog();
-            
-            // Кнопка начала игры
-            document.getElementById('startButton').addEventListener('click', function() {
-                showGameScreen();
-            });
-            
-            // Предотвращаем стандартные жесты браузера
-            document.addEventListener('touchmove', function(e) {
-                if (e.scale !== 1) {
-                    e.preventDefault();
-                }
-            }, { passive: false });
-            
-            // Предотвращаем контекстное меню
-            document.addEventListener('contextmenu', function(e) {
-                e.preventDefault();
-                return false;
-            });
-            
-            // Отключаем bounce-скролл на iOS
-            document.addEventListener('touchmove', function(e) {
-                if (e.target === document.documentElement || e.target === document.body) {
-                    e.preventDefault();
-                }
-            }, { passive: false });
-        });
-    </script>
+</div>
+
+<div id="winScreen" class="overlay-screen">
+    <div class="win-card">
+        <h2>🐞 Жучок съеден!</h2>
+        <p>Уровень пройден 🎉</p>
+        <button id="nextLevelBtn">➡ Следующий</button>
+        <button id="toMenuBtn">🏠 В меню</button>
+    </div>
+</div>
+
+<audio id="bgMusic" loop>
+    <source src="assets/music/cozy.mp3" type="audio/mpeg">
+</audio>
+
+<script src="zuma-engine.js"></script>
+<script src="game-ui.js"></script>
+
 </body>
 </html>
