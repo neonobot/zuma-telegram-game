@@ -2,14 +2,27 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Zuma Telegram Game</title>
+    
+    <!-- Favicon -->
     <link rel="icon" href="favicon.ico" type="image/x-icon">
+    
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            touch-action: none;
         }
         
         body {
@@ -19,32 +32,108 @@
             min-height: 100vh;
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            overflow: hidden;
+            padding: 10px;
         }
         
         #gameContainer {
             position: relative;
-            border-radius: 20px;
+            border-radius: 15px;
             overflow: hidden;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+            max-width: 100%;
+            max-height: 100vh;
         }
         
-        canvas {
+        #gameCanvas {
             display: block;
             background: #0f3460;
+            width: 100%;
+            height: auto;
+            touch-action: none;
         }
         
         #ui {
             position: absolute;
-            top: 20px;
-            left: 20px;
+            top: 15px;
+            left: 15px;
             color: white;
             z-index: 10;
-            font-size: 24px;
+            font-size: 18px;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-            background: rgba(0, 0, 0, 0.5);
-            padding: 10px 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 15px;
             border-radius: 10px;
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+        }
+        
+        .mobile-controls {
+            display: none;
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            justify-content: space-around;
+            padding: 0 20px;
+            z-index: 10;
+        }
+        
+        .mobile-btn {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            transition: all 0.2s;
+        }
+        
+        .mobile-btn:active {
+            transform: scale(0.95);
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        #shootBtn {
+            background: rgba(255, 65, 108, 0.7);
+        }
+        
+        @media (max-width: 768px) {
+            #gameContainer {
+                border-radius: 0;
+                width: 100vw;
+                height: 100vh;
+            }
+            
+            #gameCanvas {
+                width: 100%;
+                height: 100%;
+            }
+            
+            #ui {
+                top: 10px;
+                left: 10px;
+                font-size: 16px;
+                padding: 8px 12px;
+            }
+            
+            .mobile-controls {
+                display: flex;
+            }
+        }
+        
+        /* Эффекты для десктопа */
+        @media (hover: hover) {
+            .mobile-controls {
+                display: none;
+            }
         }
     </style>
 </head>
@@ -52,65 +141,105 @@
     <div id="gameContainer">
         <canvas id="gameCanvas" width="800" height="600"></canvas>
         <div id="ui">
-            Очки: <span id="score">0</span> | 
-            Уровень: <span id="level">1</span> |
-            Жизни: <span id="lives">3</span>
+            🎯 Очки: <span id="score">0</span> | 
+            🚀 Уровень: <span id="level">1</span> |
+            ❤️ Жизни: <span id="lives">3</span>
+        </div>
+        
+        <!-- Мобильные кнопки -->
+        <div class="mobile-controls">
+            <div class="mobile-btn" id="rotateLeft">←</div>
+            <div class="mobile-btn" id="shootBtn">FIRE</div>
+            <div class="mobile-btn" id="rotateRight">→</div>
         </div>
     </div>
     
     <!-- Telegram Web App SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     
+    <!-- Игровой движок -->
+    <script src="game.js"></script>
+    
     <script>
-        // Упрощенный игровой движок прямо в HTML
-        console.log('Game starting...');
+        console.log('Initializing Zuma Game...');
         
+        // Проверка загрузки Telegram Web App
+        if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
+            console.log('Telegram Web App detected');
+            Telegram.WebApp.ready();
+            Telegram.WebApp.expand();
+            
+            // Настройка темы
+            Telegram.WebApp.setHeaderColor('#0f3460');
+            Telegram.WebApp.setBackgroundColor('#0f3460');
+            
+            // Отправка данных в Telegram
+            window.sendScoreToTelegram = function(score) {
+                Telegram.WebApp.sendData(JSON.stringify({
+                    action: 'updateScore',
+                    score: score,
+                    level: window.game?.level || 1
+                }));
+            };
+        } else {
+            console.log('Running in standalone mode');
+        }
+        
+        // Инициализация игры
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM loaded');
+            console.log('DOM loaded, starting game...');
             
-            const canvas = document.getElementById('gameCanvas');
-            const ctx = canvas.getContext('2d');
-            
-            if (!canvas || !ctx) {
-                console.error('Canvas not found!');
-                return;
+            try {
+                // Создаем игру
+                window.game = new ZumaGame('gameCanvas');
+                window.game.init();
+                console.log('Game started successfully!');
+                
+                // Мобильные кнопки
+                document.getElementById('rotateLeft').addEventListener('touchstart', function(e) {
+                    e.preventDefault();
+                    window.game.cannon.angle += 10;
+                });
+                
+                document.getElementById('rotateRight').addEventListener('touchstart', function(e) {
+                    e.preventDefault();
+                    window.game.cannon.angle -= 10;
+                });
+                
+                document.getElementById('shootBtn').addEventListener('touchstart', function(e) {
+                    e.preventDefault();
+                    window.game.shoot();
+                });
+                
+                // Десктоп хоткеи
+                document.addEventListener('keydown', function(e) {
+                    if (e.code === 'KeyP') {
+                        window.game.isPaused = !window.game.isPaused;
+                        alert(window.game.isPaused ? 'Игра на паузе' : 'Игра продолжается');
+                    }
+                    if (e.code === 'KeyR' && window.game.gameOver) {
+                        window.location.reload();
+                    }
+                });
+                
+            } catch (error) {
+                console.error('Failed to start game:', error);
+                document.getElementById('ui').innerHTML = 
+                    '⚠️ Ошибка загрузки игры. Обновите страницу.';
             }
-            
-            console.log('Canvas found, drawing...');
-            
-            // Отрисовка фона
-            ctx.fillStyle = '#0f3460';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Текст
-            ctx.fillStyle = 'white';
-            ctx.font = 'bold 48px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText('ZUMA GAME', canvas.width / 2, canvas.height / 2 - 50);
-            
-            ctx.font = '24px Arial';
-            ctx.fillText('GitHub Pages работает!', canvas.width / 2, canvas.height / 2 + 20);
-            ctx.fillText('Игра загружена успешно', canvas.width / 2, canvas.height / 2 + 60);
-            
-            // Шарик
-            ctx.fillStyle = '#FF416C';
-            ctx.beginPath();
-            ctx.arc(canvas.width / 2, canvas.height / 2 + 120, 40, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Обновление UI
-            document.getElementById('score').textContent = '1000';
-            document.getElementById('level').textContent = '1';
-            document.getElementById('lives').textContent = '3';
-            
-            console.log('Game rendered successfully!');
-            
-            // Telegram integration
-            if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
-                Telegram.WebApp.ready();
-                Telegram.WebApp.expand();
-                console.log('Telegram WebApp initialized');
+        });
+        
+        // Предотвращаем масштабирование на мобильных
+        document.addEventListener('touchmove', function(e) {
+            if (e.scale !== 1) {
+                e.preventDefault();
             }
+        }, { passive: false });
+        
+        // Предотвращаем контекстное меню
+        document.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+            return false;
         });
     </script>
 </body>
