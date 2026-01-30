@@ -3,56 +3,115 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zuma Game | Telegram</title>
+    <title>Zuma Telegram Game</title>
     <link rel="icon" href="favicon.ico" type="image/x-icon">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            min-height: 100vh; 
-            background: #1a1a2e; 
-            font-family: Arial, sans-serif;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-        #gameContainer { 
-            position: relative; 
-            border-radius: 10px; 
-            overflow: hidden; 
+        
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
         }
-        canvas { 
-            display: block; 
-            background: #0f3460; 
-            max-width: 100%; 
-            height: auto; 
+        
+        #gameContainer {
+            position: relative;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
         }
-        .controls { 
-            position: absolute; 
-            top: 20px; 
-            left: 20px; 
-            color: white; 
-            background: rgba(0,0,0,0.5); 
-            padding: 10px; 
-            border-radius: 5px; 
+        
+        canvas {
+            display: block;
+            background: #0f3460;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            z-index: 10;
+            font-size: 24px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px 20px;
+            border-radius: 10px;
         }
     </style>
 </head>
 <body>
     <div id="gameContainer">
         <canvas id="gameCanvas" width="800" height="600"></canvas>
-        <div class="controls">
+        <div id="ui">
             Очки: <span id="score">0</span> | 
-            Уровень: <span id="level">1</span>
+            Уровень: <span id="level">1</span> |
+            Жизни: <span id="lives">3</span>
         </div>
     </div>
     
+    <!-- Telegram Web App SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
     <script>
-        // Telegram Web App интеграция
-        if (typeof Telegram !== 'undefined') {
-            Telegram.WebApp.ready();
-            Telegram.WebApp.expand();
-        }
+        // Упрощенный игровой движок прямо в HTML
+        console.log('Game starting...');
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded');
+            
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            if (!canvas || !ctx) {
+                console.error('Canvas not found!');
+                return;
+            }
+            
+            console.log('Canvas found, drawing...');
+            
+            // Отрисовка фона
+            ctx.fillStyle = '#0f3460';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Текст
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 48px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('ZUMA GAME', canvas.width / 2, canvas.height / 2 - 50);
+            
+            ctx.font = '24px Arial';
+            ctx.fillText('GitHub Pages работает!', canvas.width / 2, canvas.height / 2 + 20);
+            ctx.fillText('Игра загружена успешно', canvas.width / 2, canvas.height / 2 + 60);
+            
+            // Шарик
+            ctx.fillStyle = '#FF416C';
+            ctx.beginPath();
+            ctx.arc(canvas.width / 2, canvas.height / 2 + 120, 40, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Обновление UI
+            document.getElementById('score').textContent = '1000';
+            document.getElementById('level').textContent = '1';
+            document.getElementById('lives').textContent = '3';
+            
+            console.log('Game rendered successfully!');
+            
+            // Telegram integration
+            if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
+                Telegram.WebApp.ready();
+                Telegram.WebApp.expand();
+                console.log('Telegram WebApp initialized');
+            }
+        });
     </script>
-    <script src="zuma-engine.js"></script>
 </body>
 </html>
