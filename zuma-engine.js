@@ -267,7 +267,354 @@ class ZumaGame {
     // Остальные методы остаются такими же, но с улучшенной графикой...
     // Здесь должны быть все остальные методы из предыдущей версии,
     // но с изменениями в drawFrog() и drawPath() для новой графики
+    updateProjectiles(delta) {
+    for (let i = this.projectiles.length - 1; i >= 0; i--) {
+        const proj = this.projectiles[i];
+        
+        // Обновление позиции
+        proj.x += proj.vx * delta;
+        proj.y += proj.vy * delta;
+        
+        // Добавляем точку в след
+        proj.trail.push({ x: proj.x, y: proj.y });
+        if (proj.trail.length > 5) proj.trail.shift();
+        
+        // Уменьшаем время жизни
+        proj.life -= delta;
+        
+        // Проверка выхода за границы
+        if (proj.x < -proj.radius || proj.x > this.width + proj.radius ||
+            proj.y < -proj.radius || proj.y > this.height + proj.radius ||
+            proj.life <= 0) {
+            this.projectiles.splice(i, 1);
+            continue;
+        }
+        
+        // Проверка столкновения с цепочкой
+        const collision = this.checkProjectileCollision(proj);
+        if (collision) {
+            this.handleProjectileCollision(i, proj, collision);
+        }
+    }
+}
+
+checkProjectileCollision(proj) {
+    // Ищем ближайший шар в цепочке
+    let closestBall = null;
+    let minDistance = Infinity;
     
+    for (let i = 0; i < this.chain.balls.length; i++) {
+        const ball = this.chain.balls[i];
+        const point = this.getPathPoint(ball.position);
+        const dx = proj.x - point.x;
+        const dy = proj.y - point.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance < (proj.radius + ball.radius) && distance < minDistance) {
+            minDistance = distance;
+            closestBall = { ball, index: i, point };
+        }
+    }
+    
+    return closestBall ? { ball: closestBall.ball, index: closestBall.index, point: closestBall.point } : null;
+}
+
+handleProjectileCollision(projIndex, proj, collision) {
+    // Создаем эффект взрыва
+    this.createExplosion(proj.x, proj.y, proj.color, 15);
+    
+    // Вставляем шар в цепочку
+    const newBall = {
+        position: collision.ball.position,
+        color: proj.color,
+        radius: 20,
+        index: collision.index,
+        wobble: 0,
+        wobbleSpeed: 0.02 + Math.random() * 0.02
+    };
+    
+    // Вставляем шар перед тем, в который попали
+    this.chain.balls.splice(collision.index, 0, newBall);
+    
+    // Удаляем снаряд
+    this.projectiles.splice(projIndex, 1);
+    
+    // Проверяем совпадения
+    this.checkForMatches(collision.index);
+}
+    createExplosion(x, y, color, size) {
+    for (let i = 0; i < 15; i++) {
+        this.particles.push({
+            x, y,
+            vx: (Math.random() - 0.5) * 10,
+            vy: (Math.random() - 0.5) * 10,
+            color,
+            size: Math.random() * size + 2,
+            life: 30 + Math.random() * 30,
+            gravity: 0.2
+        });
+    }
+}
+
+checkForMatches(startIndex) {
+    if (startIndex < 0 || startIndex >= this.chain.balls.length) return;
+    
+    const color = this.chain.balls[startIndex].color;
+    let matches = [startIndex];
+    
+    // Проверяем влево
+    for (let i = startIndex - 1; i >= 0; i--) {
+        if (this.chain.balls[i].color === color) {
+            matches.unshift(i);
+        } else break;
+    }
+    
+    // Проверяем вправо
+    for (let i = startIndex + 1; i < this.chain.balls.length; i++) {
+        if (this.chain.balls[i].color === color) {
+            matches.push(i);
+        } else break;
+    }
+    
+    // Если 3 или больше совпадений
+    if (matches.length >= 3) {
+        this.removeMatches(matches);
+    }
+}
+
+removeMatches(matches) {
+    // Сортируем по убыванию, чтобы удалять с конца
+    matches.sort((a, b) => b - a);
+    
+    // Подсчет очков
+    const baseScore = 100;
+    const multiplier = Math.min(matches.length - 2, 5);
+    const scoreGained = baseScore * multiplier;
+    this.score += scoreGained;
+    
+    // Создаем текст комбо
+    const firstBall = this.chain.balls[matches[matches.length - 1]];
+    const point = this.getPathPoint(firstBall.position);
+    this.comboTexts.push({
+        x: point.x,
+        y: point.y,
+        text: `+${scoreGained} COMBO x${multiplier}!`,
+        life: 60,
+        color: '#FFD700'
+    });
+    
+    // Удаляем шары
+    for (const index of matches) {
+        const ball = this.chain.balls[index];
+        const point = this.getPathPoint(ball.position);
+        
+        // Создаем эффект взрыва
+        this.createExplosion(point.x, point.y, ball.color, 25);
+        
+        // Удаляем шар
+        this.chain.balls.splice(index, 1);
+    }
+    
+    // Обновляем индексы
+    for (let i = 0; i < this.chain.balls.length; i++) {
+        this.chain.balls[i].index = i;
+    }
+    
+    // Проверяем конец уровня
+    if (this.chain.balls.length === 0) {
+        this.levelUp();
+    }
+}
+
+levelUp() {
+    this.level++;
+    this.lives = Math.min(this.lives + 1, 10); // Добавляем жизнь, но не больше 10
+    
+    // Увеличиваем скорость
+    this.chain.speed = 0.25 + (this.level * 0.015);
+    
+    // Создаем новую цепочку
+    this.createChain();
+    
+    // Эффект перехода уровня
+    this.comboTexts.push({
+        x: this.width / 2,
+        y: this.height / 2,
+        text: `УРОВЕНЬ ${this.level}!`,
+        life: 120,
+        color: '#4CAF50',
+        size: 40
+    });
+}
+
+drawChain() {
+    for (let i = 0; i < this.chain.balls.length; i++) {
+        const ball = this.chain.balls[i];
+        const point = this.getPathPoint(ball.position);
+        
+        // Добавляем колебание
+        const wobbleX = Math.sin(ball.wobble) * 2;
+        const wobbleY = Math.cos(ball.wobble) * 2;
+        
+        // Рисуем блестящий шар
+        this.drawShinyBall(
+            point.x + wobbleX,
+            point.y + wobbleY,
+            ball.radius,
+            ball.color
+        );
+    }
+}
+
+drawShinyBall(x, y, radius, color) {
+    // Основной цвет
+    this.ctx.fillStyle = color;
+    this.ctx.beginPath();
+    this.ctx.arc(x, y, radius, 0, Math.PI * 2);
+    this.ctx.fill();
+    
+    // Блик
+    const gradient = this.ctx.createRadialGradient(
+        x - radius/3, y - radius/3, 1,
+        x - radius/3, y - radius/3, radius/2
+    );
+    gradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
+    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    
+    this.ctx.fillStyle = gradient;
+    this.ctx.beginPath();
+    this.ctx.arc(x - radius/3, y - radius/3, radius/2, 0, Math.PI * 2);
+    this.ctx.fill();
+    
+    // Контур
+    this.ctx.strokeStyle = this.darkenColor(color, 30);
+    this.ctx.lineWidth = 2;
+    this.ctx.stroke();
+}
+
+drawProjectiles() {
+    for (const proj of this.projectiles) {
+        // След
+        for (let i = 0; i < proj.trail.length; i++) {
+            const point = proj.trail[i];
+            const alpha = i / proj.trail.length * 0.3;
+            
+            this.ctx.fillStyle = proj.color.replace(')', `, ${alpha})`).replace('rgb', 'rgba');
+            this.ctx.beginPath();
+            this.ctx.arc(point.x, point.y, proj.radius * 0.7, 0, Math.PI * 2);
+            this.ctx.fill();
+        }
+        
+        // Основной шар
+        this.drawShinyBall(proj.x, proj.y, proj.radius, proj.color);
+    }
+}
+
+drawEffects() {
+    // Частицы
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+        const p = this.particles[i];
+        
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += p.gravity;
+        p.life--;
+        
+        if (p.life <= 0) {
+            this.particles.splice(i, 1);
+            continue;
+        }
+        
+        this.ctx.globalAlpha = p.life / 60;
+        this.ctx.fillStyle = p.color;
+        this.ctx.beginPath();
+        this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        this.ctx.fill();
+    }
+    this.ctx.globalAlpha = 1;
+    
+    // Тексты комбо
+    for (let i = this.comboTexts.length - 1; i >= 0; i--) {
+        const text = this.comboTexts[i];
+        
+        text.y -= 1;
+        text.life--;
+        
+        if (text.life <= 0) {
+            this.comboTexts.splice(i, 1);
+            continue;
+        }
+        
+        this.ctx.globalAlpha = Math.min(text.life / 30, 1);
+        this.ctx.fillStyle = text.color;
+        this.ctx.font = `bold ${text.size || 24}px Nunito, Arial, sans-serif`;
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillText(text.text, text.x, text.y);
+        
+        // Контур
+        this.ctx.strokeStyle = '#000';
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeText(text.text, text.x, text.y);
+    }
+    this.ctx.globalAlpha = 1;
+}
+
+drawNextBall() {
+    if (!this.frog.nextBall) return;
+    
+    // Индикатор следующего шара в правом верхнем углу
+    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+    this.ctx.fillRect(this.width - 90, 20, 70, 70);
+    
+    this.ctx.strokeStyle = '#4CAF50';
+    this.ctx.lineWidth = 3;
+    this.ctx.strokeRect(this.width - 90, 20, 70, 70);
+    
+    this.ctx.font = 'bold 16px Nunito, Arial, sans-serif';
+    this.ctx.fillStyle = '#388E3C';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('СЛЕДУЮЩИЙ', this.width - 55, 40);
+    
+    // Шар
+    this.drawShinyBall(this.width - 55, 65, 20, this.frog.nextBall);
+}
+
+drawAim() {
+    if (this.gameOver || this.isPaused) return;
+    
+    const angle = this.frog.angle * Math.PI / 180;
+    let x = this.frog.x;
+    let y = this.frog.y;
+    
+    // Линия прицела
+    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+    this.ctx.lineWidth = 1;
+    this.ctx.setLineDash([5, 3]);
+    this.ctx.beginPath();
+    this.ctx.moveTo(x, y);
+    
+    for (let i = 1; i <= 20; i++) {
+        x += Math.cos(angle) * 20;
+        y += Math.sin(angle) * 20;
+        this.ctx.lineTo(x, y);
+    }
+    this.ctx.stroke();
+    this.ctx.setLineDash([]);
+    
+    // Круг прицела на конце
+    this.ctx.strokeStyle = '#FF9800';
+    this.ctx.lineWidth = 2;
+    this.ctx.beginPath();
+    this.ctx.arc(x, y, 15, 0, Math.PI * 2);
+    this.ctx.stroke();
+    
+    // Точка в центре
+    this.ctx.fillStyle = '#FF9800';
+    this.ctx.beginPath();
+    this.ctx.arc(x, y, 5, 0, Math.PI * 2);
+    this.ctx.fill();
+}
     drawFrog() {
         const frog = this.frog;
         
