@@ -14,6 +14,9 @@ class ZumaGame {
         this.width = this.canvas.width;
         this.height = this.canvas.height;
         
+        // Цвета
+        this.colors = ['#FF416C', '#4A90E2', '#44D62C', '#FFD700', '#9B30FF'];
+
         // Игровые переменные
         this.score = 0;
         this.level = 1;
@@ -38,8 +41,6 @@ class ZumaGame {
         // Летящие шары
         this.projectiles = [];
         
-        // Цвета
-        this.colors = ['#FF416C', '#4A90E2', '#44D62C', '#FFD700', '#9B30FF'];
         
         console.log('Game initialized');
     }
