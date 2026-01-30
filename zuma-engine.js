@@ -98,6 +98,34 @@ class ZumaGame {
         
         return path;
     }
+    // Добавьте этот метод в класс ZumaGame
+updateEffects(delta) {
+    // Обновление частиц
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+        const p = this.particles[i];
+        
+        p.x += p.vx * delta;
+        p.y += p.vy * delta;
+        p.vy += p.gravity;
+        p.life--;
+        
+        if (p.life <= 0) {
+            this.particles.splice(i, 1);
+        }
+    }
+    
+    // Обновление текстов комбо
+    for (let i = this.comboTexts.length - 1; i >= 0; i--) {
+        const text = this.comboTexts[i];
+        
+        text.y -= 1 * delta;
+        text.life--;
+        
+        if (text.life <= 0) {
+            this.comboTexts.splice(i, 1);
+        }
+    }
+}
     
     // Получение точки на пути с плавностью
     getPathPoint(t) {
@@ -499,7 +527,24 @@ drawProjectiles() {
             const point = proj.trail[i];
             const alpha = i / proj.trail.length * 0.3;
             
-            this.ctx.fillStyle = proj.color.replace(')', `, ${alpha})`).replace('rgb', 'rgba');
+            // ФИКС: правильное создание цвета с альфа-каналом
+            const color = proj.color;
+            let rgbaColor;
+            
+            if (color.startsWith('#')) {
+                // HEX в RGBA
+                const r = parseInt(color.slice(1, 3), 16);
+                const g = parseInt(color.slice(3, 5), 16);
+                const b = parseInt(color.slice(5, 7), 16);
+                rgbaColor = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+            } else if (color.startsWith('rgb')) {
+                // RGB в RGBA
+                rgbaColor = color.replace(')', `, ${alpha})`).replace('rgb', 'rgba');
+            } else {
+                rgbaColor = `rgba(255, 255, 255, ${alpha})`; // fallback
+            }
+            
+            this.ctx.fillStyle = rgbaColor;
             this.ctx.beginPath();
             this.ctx.arc(point.x, point.y, proj.radius * 0.7, 0, Math.PI * 2);
             this.ctx.fill();
@@ -838,6 +883,14 @@ drawAim() {
         this.ctx.fillStyle = '#81D4FA';
         this.ctx.font = '20px Nunito, Arial, sans-serif';
         this.ctx.fillText('Нажмите кнопку или клавишу R', this.width / 2, this.height / 2 + 160);
+
+        // Сохраняем координаты кнопки рестарта для клика
+    this.gameOverRestartButton = {
+        x: this.width/2 - 120,
+        y: this.height/2 + 80,
+        width: 240,
+        height: 60
+    };
     }
     
     // Остальные методы (shoot, restartGame, draw и т.д.) остаются такими же
