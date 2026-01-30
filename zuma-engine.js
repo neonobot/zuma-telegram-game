@@ -899,4 +899,444 @@ class ZumaGame {
         return '#' + (
             0x1000000 +
             (R > 0 ? R : 0) * 0x10000 +
-            (G > 0 ? G : 
+            (G > 0 ? G : 0) * 0x100 +
+            (B > 0 ? B : 0)
+        ).toString(16).slice(1);
+    }
+    
+    drawProjectiles() {
+        for (const p of this.projectiles) {
+            // Трейл
+            p.trail.push({x: p.x, y: p.y});
+            if (p.trail.length > 8) p.trail.shift(); // Укорочен трейл
+            
+            // Рисуем трейл
+            for (let i = 0; i < p.trail.length; i++) {
+                const point = p.trail[i];
+                const alpha = i / p.trail.length * 0.4;
+                
+                this.ctx.beginPath();
+                this.ctx.arc(point.x, point.y, p.radius * (i / p.trail.length), 0, Math.PI * 2);
+                this.ctx.fillStyle = this.hexToRgbA(p.color, alpha);
+                this.ctx.fill();
+            }
+            
+            // Сам шар
+            this.drawBall(p.x, p.y, p.radius, p.color);
+        }
+    }
+    
+    hexToRgbA(hex, alpha) {
+        let c;
+        if (/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)) {
+            c = hex.substring(1).split('');
+            if (c.length === 3) {
+                c = [c[0], c[0], c[1], c[1], c[2], c[2]];
+            }
+            c = '0x' + c.join('');
+            return `rgba(${[(c>>16)&255, (c>>8)&255, c&255].join(',')},${alpha})`;
+        }
+        return `rgba(255,255,255,${alpha})`;
+    }
+    
+    drawFrog() {
+        // Лист кувшинки
+        this.ctx.fillStyle = '#81C784';
+        this.ctx.beginPath();
+        this.ctx.ellipse(this.frog.x, this.frog.y + 20, 55, 28, 0, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        this.ctx.fillStyle = '#A5D6A7';
+        this.ctx.beginPath();
+        this.ctx.ellipse(this.frog.x, this.frog.y + 20, 45, 23, 0, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        // Тело лягушки
+        this.ctx.save();
+        this.ctx.translate(this.frog.x, this.frog.y);
+        this.ctx.rotate(this.frog.angle * Math.PI / 180);
+        
+        // Тело
+        this.ctx.fillStyle = '#4CAF50';
+        this.ctx.beginPath();
+        this.ctx.ellipse(0, 0, 32, 22, 0, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        // Голова
+        this.ctx.beginPath();
+        this.ctx.arc(22, 0, 18, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        // Глаза (разные для состояния blinking)
+        this.ctx.fillStyle = 'white';
+        if (this.frog.state === 'blinking') {
+            // Закрытые глаза
+            this.ctx.fillStyle = '#388E3C';
+            this.ctx.fillRect(30, -5, 10, 2);
+            this.ctx.fillRect(30, 5, 10, 2);
+        } else {
+            // Открытые глаза
+            this.ctx.fillStyle = 'white';
+            this.ctx.beginPath();
+            this.ctx.arc(32, -8, 7, 0, Math.PI * 2);
+            this.ctx.arc(32, 8, 7, 0, Math.PI * 2);
+            this.ctx.fill();
+            
+            // Зрачки
+            this.ctx.fillStyle = '#222';
+            const eyeOffset = this.frog.state === 'aiming' ? 2 : 0;
+            this.ctx.beginPath();
+            this.ctx.arc(32 + eyeOffset, -8, 3.5, 0, Math.PI * 2);
+            this.ctx.arc(32 + eyeOffset, 8, 3.5, 0, Math.PI * 2);
+            this.ctx.fill();
+        }
+        
+        // Рот
+        this.ctx.strokeStyle = '#388E3C';
+        this.ctx.lineWidth = 2.5;
+        this.ctx.beginPath();
+        if (this.frog.mouthOpen) {
+            // Открытый рот для выстрела
+            this.ctx.arc(27, 0, 10, 0, Math.PI, false);
+        } else {
+            // Улыбка
+            this.ctx.arc(27, 4, 8, 0, Math.PI, false);
+        }
+        this.ctx.stroke();
+        
+        // Ноздри
+        this.ctx.fillStyle = '#388E3C';
+        this.ctx.beginPath();
+        this.ctx.arc(25, -2, 1.8, 0, Math.PI * 2);
+        this.ctx.arc(25, 2, 1.8, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        this.ctx.restore();
+        
+        // Лапки
+        this.ctx.fillStyle = '#388E3C';
+        this.ctx.beginPath();
+        this.ctx.ellipse(this.frog.x - 22, this.frog.y + 8, 8, 4, 0.5, 0, Math.PI * 2);
+        this.ctx.ellipse(this.frog.x + 22, this.frog.y + 8, 8, 4, -0.5, 0, Math.PI * 2);
+        this.ctx.fill();
+    }
+    
+    drawEffects() {
+        // Взрывы
+        for (const exp of this.explosions) {
+            this.ctx.globalAlpha = exp.alpha;
+            
+            const gradient = this.ctx.createRadialGradient(
+                exp.x, exp.y, 0,
+                exp.x, exp.y, exp.radius
+            );
+            gradient.addColorStop(0, exp.color);
+            gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            
+            this.ctx.beginPath();
+            this.ctx.arc(exp.x, exp.y, exp.radius, 0, Math.PI * 2);
+            this.ctx.fillStyle = gradient;
+            this.ctx.fill();
+        }
+        this.ctx.globalAlpha = 1;
+        
+        // Частицы
+        for (const p of this.particles) {
+            this.ctx.globalAlpha = p.alpha;
+            this.ctx.fillStyle = p.color;
+            this.ctx.beginPath();
+            this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            this.ctx.fill();
+        }
+        this.ctx.globalAlpha = 1;
+        
+        // Текст комбо
+        for (const text of this.comboTexts) {
+            this.ctx.globalAlpha = text.alpha;
+            
+            // Фон текста
+            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+            this.ctx.fillRect(text.x - 60, text.y - 25, 120, 50);
+            
+            // Тень текста
+            this.ctx.fillStyle = '#FF6B6B';
+            this.ctx.font = 'bold 24px Arial';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText(text.text, text.x + 1, text.y - 5 + 1);
+            
+            // Основной текст
+            this.ctx.fillStyle = '#FFD700';
+            this.ctx.fillText(text.text, text.x, text.y - 5);
+            
+            // Счет
+            this.ctx.fillStyle = '#4CAF50';
+            this.ctx.font = '20px Arial';
+            this.ctx.fillText(text.score, text.x, text.y + 15);
+            
+            this.ctx.globalAlpha = 1;
+        }
+    }
+    
+    drawNextBall() {
+        if (!this.frog.nextBall) return;
+        
+        const angle = this.frog.angle * Math.PI / 180;
+        const offset = 60;
+        
+        const x = this.frog.x + Math.cos(angle) * offset;
+        const y = this.frog.y + Math.sin(angle) * offset;
+        
+        this.drawBall(x, y, 20, this.frog.nextBall);
+        
+        // Пульсирующая обводка
+        const pulse = Math.sin(Date.now() / 250) * 1.5 + 2.5;
+        this.ctx.strokeStyle = '#FFD700';
+        this.ctx.lineWidth = pulse;
+        this.ctx.beginPath();
+        this.ctx.arc(x, y, 22, 0, Math.PI * 2);
+        this.ctx.stroke();
+    }
+    
+    drawAim() {
+        const angle = this.frog.angle * Math.PI / 180;
+        const length = 160;
+        
+        // Линия прицела
+        this.ctx.strokeStyle = 'rgba(255, 215, 0, 0.5)';
+        this.ctx.lineWidth = 1.8;
+        this.ctx.setLineDash([6, 3]);
+        this.ctx.beginPath();
+        this.ctx.moveTo(this.frog.x, this.frog.y);
+        this.ctx.lineTo(
+            this.frog.x + Math.cos(angle) * length,
+            this.frog.y + Math.sin(angle) * length
+        );
+        this.ctx.stroke();
+        this.ctx.setLineDash([]);
+        
+        // Конечная точка прицела
+        this.ctx.fillStyle = 'rgba(255, 215, 0, 0.25)';
+        this.ctx.beginPath();
+        this.ctx.arc(
+            this.frog.x + Math.cos(angle) * length,
+            this.frog.y + Math.sin(angle) * length,
+            6, 0, Math.PI * 2
+        );
+        this.ctx.fill();
+    }
+    
+    drawUI() {
+        // Фон UI
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
+        this.ctx.fillRect(15, 15, 230, 90);
+        
+        // Скругленные углы
+        this.ctx.strokeStyle = '#FFD700';
+        this.ctx.lineWidth = 2.5;
+        this.ctx.strokeRect(15, 15, 230, 90);
+        
+        // Счет
+        this.ctx.fillStyle = '#2D3436';
+        this.ctx.font = 'bold 26px Arial';
+        this.ctx.textAlign = 'left';
+        this.ctx.fillText(`🍯 ${this.score}`, 35, 55);
+        
+        // Уровень
+        this.ctx.fillStyle = '#6C5CE7';
+        this.ctx.font = '22px Arial';
+        this.ctx.fillText(`🚀 Уровень ${this.level}`, 35, 85);
+        
+        // Жизни (цветочки)
+        const startX = this.width - 180;
+        for (let i = 0; i < this.lives; i++) {
+            const x = startX + i * 32;
+            
+            // Цветочек жизни
+            this.ctx.fillStyle = '#FF6B6B';
+            this.ctx.beginPath();
+            this.ctx.arc(x, 50, 10, 0, Math.PI * 2);
+            this.ctx.fill();
+            
+            // Лепестки
+            this.ctx.fillStyle = '#FFD166';
+            for (let j = 0; j < 5; j++) {
+                const angle = (j / 5) * Math.PI * 2;
+                const px = x + Math.cos(angle) * 7;
+                const py = 50 + Math.sin(angle) * 7;
+                
+                this.ctx.beginPath();
+                this.ctx.arc(px, py, 4, 0, Math.PI * 2);
+                this.ctx.fill();
+            }
+        }
+        
+        // Индикатор паузы
+        if (this.isPaused) {
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+            this.ctx.fillRect(0, 0, this.width, this.height);
+            
+            this.ctx.fillStyle = 'white';
+            this.ctx.font = 'bold 42px Arial';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText('⏸ ПАУЗА', this.width / 2, this.height / 2);
+            
+            this.ctx.font = '24px Arial';
+            this.ctx.fillText('Нажмите P для продолжения', this.width / 2, this.height / 2 + 50);
+        }
+    }
+    
+    setupControls() {
+        // Мышь
+        this.canvas.addEventListener('mousemove', (e) => {
+            const rect = this.canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            const dx = x - this.frog.x;
+            const dy = y - this.frog.y;
+            this.frog.angle = Math.atan2(dy, dx) * 180 / Math.PI;
+            this.frog.state = 'aiming';
+            
+            if (this.frog.angle > -30) this.frog.angle = -30;
+            if (this.frog.angle < -150) this.frog.angle = -150;
+        });
+        
+        this.canvas.addEventListener('mouseleave', () => {
+            if (this.frog.state === 'aiming') this.frog.state = 'idle';
+        });
+        
+        this.canvas.addEventListener('click', (e) => {
+            if (this.gameOver) {
+                // Проверяем клик по кнопке рестарта
+                const rect = this.canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                const buttonX1 = this.width/2 - 100;
+                const buttonX2 = this.width/2 + 100;
+                const buttonY1 = this.height/2 + 80;
+                const buttonY2 = this.height/2 + 140;
+                
+                if (x >= buttonX1 && x <= buttonX2 && y >= buttonY1 && y <= buttonY2) {
+                    this.restartGame();
+                }
+            } else {
+                this.shoot();
+            }
+        });
+        
+        // Клавиатура
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.code === 'KeyF') this.shoot();
+            if (e.code === 'ArrowLeft') {
+                this.frog.angle += 5;
+                this.frog.state = 'aiming';
+            }
+            if (e.code === 'ArrowRight') {
+                this.frog.angle -= 5;
+                this.frog.state = 'aiming';
+            }
+            if (e.code === 'KeyP') {
+                this.isPaused = !this.isPaused;
+            }
+            if (e.code === 'KeyR') {
+                this.restartGame();
+            }
+            if (e.code === 'Escape') {
+                this.isPaused = !this.isPaused;
+            }
+            
+            if (this.frog.angle > -30) this.frog.angle = -30;
+            if (this.frog.angle < -150) this.frog.angle = -150;
+        });
+        
+        // Сенсорное управление
+        this.canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const rect = this.canvas.getBoundingClientRect();
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+            
+            const dx = x - this.frog.x;
+            const dy = y - this.frog.y;
+            this.frog.angle = Math.atan2(dy, dx) * 180 / Math.PI;
+            this.frog.state = 'aiming';
+            
+            if (this.frog.angle > -30) this.frog.angle = -30;
+            if (this.frog.angle < -150) this.frog.angle = -150;
+        });
+        
+        this.canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            
+            if (this.gameOver) {
+                this.restartGame();
+            } else {
+                this.shoot();
+            }
+        });
+        
+        this.canvas.addEventListener('touchend', () => {
+            setTimeout(() => {
+                if (this.frog.state === 'aiming') this.frog.state = 'idle';
+            }, 150);
+        });
+        
+        // Мобильные кнопки
+        const rotateLeft = document.getElementById('rotateLeft');
+        const rotateRight = document.getElementById('rotateRight');
+        const shootBtn = document.getElementById('shootBtn');
+        
+        if (rotateLeft) {
+            rotateLeft.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                this.frog.angle += 8;
+                this.frog.state = 'aiming';
+                if (this.frog.angle > -30) this.frog.angle = -30;
+            });
+            
+            rotateLeft.addEventListener('touchend', (e) => {
+                e.preventDefault();
+            });
+        }
+        
+        if (rotateRight) {
+            rotateRight.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                this.frog.angle -= 8;
+                this.frog.state = 'aiming';
+                if (this.frog.angle < -150) this.frog.angle = -150;
+            });
+            
+            rotateRight.addEventListener('touchend', (e) => {
+                e.preventDefault();
+            });
+        }
+        
+        if (shootBtn) {
+            shootBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                this.shoot();
+            });
+            
+            shootBtn.addEventListener('touchend', (e) => {
+                e.preventDefault();
+            });
+        }
+    }
+    
+    updateUI() {
+        // UI рисуется в drawUI(), но можно обновить DOM если нужно
+        if (window.sendScoreToTelegram) {
+            window.sendScoreToTelegram(this.score);
+        }
+    }
+}
+
+// Экспорт
+if (typeof window !== 'undefined') {
+    window.ZumaGame = ZumaGame;
+}
+
+console.log('Zuma Game Engine loaded successfully!');
