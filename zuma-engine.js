@@ -21,6 +21,14 @@ const ART = {
     shadowColor: 'rgba(0, 40, 30, 0.25)'
 };
 
+const GAME_STATE = {
+    MENU: 'MENU',
+    MAP: 'MAP',
+    PLAY: 'PLAY',
+    WIN: 'WIN',
+    LOSE: 'LOSE'
+};
+
 class ZumaGame {
     constructor(canvasId) {
         console.log('Creating game instance...');
@@ -33,6 +41,9 @@ class ZumaGame {
         this.ctx = this.canvas.getContext('2d');
         this.width = this.canvas.width;
         this.height = this.canvas.height;
+
+        this.state = GAME_STATE.MENU
+        
         
         // Пастельные цвета шаров
         this.colors = [
@@ -305,14 +316,16 @@ updateEffects(delta) {
     }
     
     update(delta) {
+    if (this.state !== GAME_STATE.PLAY) return;
+
     this.updateFrog(delta);
     this.updateChain(delta);
     this.updateProjectiles(delta);
     this.updateEffects(delta);
 
-    // ❤️ Восстановление жизни раз в 10 минут
+    // ❤️ восстановление жизни
     if (
-        this.lives < 3 &&
+        this.lives < this.maxLives &&
         Date.now() - this.lastLifeRestore > 600000
     ) {
         this.lives++;
@@ -378,6 +391,7 @@ updateEffects(delta) {
         
         if (this.lives <= 0) {
             this.gameOver = true;
+            this.state = GAME_STATE.LOSE;
         }
     }
     
@@ -539,6 +553,7 @@ removeMatches(matches) {
     
     // Проверяем конец уровня
     if (this.chain.balls.length === 0) {
+        this.state = GAME_STATE.WIN;
         this.levelUp();
     }
 }
@@ -1089,44 +1104,121 @@ drawAim() {
         this.isPaused = false;
         this.lastTime = 0;
     }
+    startGame() {
+    this.resetGame();
+    this.state = GAME_STATE.PLAY;
+}
+    clear() {
+    this.ctx.clearRect(0, 0, this.width, this.height);
+}
+
     
-    draw() {
-        // Градиентный фон
-        const gradient = this.ctx.createLinearGradient(0, 0, this.width, this.height);
-        gradient.addColorStop(0, '#A7C7C5');
-        gradient.addColorStop(0.5, '#B3E5FC');
-        gradient.addColorStop(1, '#9BBE8F');
-        this.ctx.fillStyle = gradient;
-        this.ctx.fillRect(0, 0, this.width, this.height);
-        
-        // Декоративные облака
-        this.drawClouds();
-        
-        // Рисуем путь (ручеек)
-        this.drawPath();
+    drawGame() {
+    // Фон
+    const gradient = this.ctx.createLinearGradient(0, 0, this.width, this.height);
+    gradient.addColorStop(0, '#E0F7FA');
+    gradient.addColorStop(1, '#81D4FA');
+    this.ctx.fillStyle = gradient;
+    this.ctx.fillRect(0, 0, this.width, this.height);
 
-        this.drawWhirlpool();
+    this.drawClouds();
+    this.drawPath();
+    this.drawChain();
+    this.drawProjectiles();
+    this.drawFrog();
+    this.drawEffects();
+    this.drawNextBall();
+    this.drawAim();
+}
+    drawMenu() {
+    this.ctx.fillStyle = '#E3F2FD';
+    this.ctx.fillRect(0, 0, this.width, this.height);
 
-        
-        // Цепочка шаров
-        this.drawChain();
-        
-        // Снаряды
-        this.drawProjectiles();
-        
-        // Лягушка в центре
-        this.drawFrog();
-        
-        // Эффекты
-        this.drawEffects();
-        
-        // Следующий шар
-        this.drawNextBall();
-        
-        // Прицел
-        this.drawAim();
-        this.drawLivesUI();
+    this.ctx.fillStyle = '#2E7D32';
+    this.ctx.font = 'bold 56px Nunito, Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('🐸 ZUMA FROG', this.width / 2, this.height / 2 - 60);
+
+    this.ctx.font = '28px Nunito, Arial';
+    this.ctx.fillText('Нажмите, чтобы начать', this.width / 2, this.height / 2 + 20);
+}
+    drawWinScreen() {
+    this.ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    this.ctx.fillRect(0, 0, this.width, this.height);
+
+    this.ctx.fillStyle = '#388E3C';
+    this.ctx.font = 'bold 52px Nunito, Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('ПОБЕДА 🌸', this.width / 2, this.height / 2 - 40);
+
+    this.ctx.font = '26px Nunito, Arial';
+    this.ctx.fillText('Нажмите для следующего уровня', this.width / 2, this.height / 2 + 30);
+}
+    drawLoseScreen() {
+    this.ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    this.ctx.fillRect(0, 0, this.width, this.height);
+
+    this.ctx.fillStyle = '#FF7043';
+    this.ctx.font = 'bold 52px Nunito, Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('ИГРА ОКОНЧЕНА', this.width / 2, this.height / 2 - 40);
+
+    this.ctx.font = '26px Nunito, Arial';
+    this.ctx.fillStyle = '#FFF';
+    this.ctx.fillText('Нажмите для рестарта', this.width / 2, this.height / 2 + 30);
+}
+    drawLivesUI() {
+    for (let i = 0; i < this.lives; i++) {
+        this.ctx.fillStyle = '#E53935';
+        this.ctx.beginPath();
+        this.ctx.arc(30 + i * 28, 30, 10, 0, Math.PI * 2);
+        this.ctx.fill();
     }
+}
+    handleClick() {
+    if (this.state === GAME_STATE.MENU) {
+        this.state = GAME_STATE.PLAY;
+        return;
+    }
+
+    if (this.state === GAME_STATE.WIN) {
+        this.levelUp();
+        this.state = GAME_STATE.PLAY;
+        return;
+    }
+
+    if (this.state === GAME_STATE.LOSE) {
+        this.restartGame();
+        this.state = GAME_STATE.MENU;
+        return;
+    }
+
+    this.shoot();
+}
+    draw() {
+    this.clear();
+
+    switch (this.state) {
+        case GAME_STATE.MENU:
+            this.drawMenu();
+            break;
+
+        case GAME_STATE.PLAY:
+            this.drawGame();
+            this.drawLivesUI();
+            break;
+
+        case GAME_STATE.WIN:
+            this.drawGame(); // фон уровня
+            this.drawWinScreen();
+            break;
+
+        case GAME_STATE.LOSE:
+            this.drawGame();
+            this.drawLoseScreen();
+            break;
+    }
+}
     
     drawClouds() {
         this.ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
