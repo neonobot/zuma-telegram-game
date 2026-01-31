@@ -2,51 +2,62 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>Zuma Cute 2D</title>
+<title>Zuma Frog Cute 2D</title>
 <style>
-    body {
+    html, body {
         margin: 0;
-        background: #D0F0FD;
-        font-family: 'Nunito', sans-serif;
-        user-select: none;
+        padding: 0;
         overflow: hidden;
+        background: #A2E0D8;
     }
-    #startScreen, #gameContainer {
+    #gameContainer {
+        display: none;
+        position: relative;
+        width: 800px;
+        height: 600px;
+        margin: auto;
+        top: 0; left: 0; bottom: 0; right: 0;
+    }
+    canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        image-rendering: pixelated;
+    }
+    #startScreen {
         position: absolute;
-        top: 0; left: 0;
-        width: 100%; height: 100%;
+        width: 800px;
+        height: 600px;
+        background: url('assets/background.png') no-repeat center/cover;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
+        font-family: 'Nunito', sans-serif;
     }
-    #gameContainer { display: none; }
     button {
-        background: #FFB74D;
-        border: 2px solid #FF9800;
-        border-radius: 12px;
-        padding: 12px 24px;
         font-size: 24px;
+        padding: 10px 20px;
+        border-radius: 15px;
+        border: none;
         cursor: pointer;
-        transition: transform 0.1s;
     }
-    button:hover { transform: scale(1.05); }
-    canvas { background: #AEEEEE; display: block; margin: 0 auto; }
 </style>
 </head>
 <body>
-
 <div id="startScreen">
-    <h1 style="font-size:48px; color:#FF7043;">🐸 Zuma Cute!</h1>
-    <p style="font-size:24px; color:#333;">Уровень: <span id="startLevel">1</span></p>
-    <button id="startButton">Начать игру</button>
+    <h1>🐸 Zuma Frog</h1>
+    <p>Уровень: <span id="startLevel">1</span></p>
+    <button id="startButton">Начать</button>
 </div>
 
 <div id="gameContainer">
     <canvas id="gameCanvas" width="800" height="600"></canvas>
 </div>
 
-<script src="game-ui.js"></script>
+<audio id="bgMusic" loop src="assets/music.mp3"></audio>
+
 <script src="zuma-engine.js"></script>
+<script src="game-ui.js"></script>
 </body>
 </html>
