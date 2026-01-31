@@ -124,4 +124,27 @@ canvas.addEventListener('touchmove', e => {
     const t = e.touches[0];
     updateFrogAim(t.clientX, t.clientY);
 }, { passive: false });
+let isDragging = false;
+
+canvas.addEventListener('touchstart', () => {
+    isDragging = false;
+});
+
+canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    isDragging = true;
+
+    const t = e.touches[0];
+    updateFrogAim(t.clientX, t.clientY);
+}, { passive: false });
+
+canvas.addEventListener('touchend', () => {
+    if (game && game.state === 'PLAY') {
+        game.shoot();
+    }
+});
+
+game = new ZumaGame('gameCanvas');
+game.lives = loadLives();
+game.startGame();
 
