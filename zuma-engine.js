@@ -86,7 +86,13 @@ class ZumaGame {
             mouthOpen: false,
             smile: 0 // Для анимации улыбки
         };
-        
+
+        this.whirlpool = {
+            x: this.width / 2,
+            y: this.height / 2,
+            radius: 42,
+            angle: 0
+        };
         // Цепочка шаров - большая круглая спираль
         this.chain = {
             balls: [],
@@ -111,26 +117,35 @@ class ZumaGame {
     
     // Генерация КРУГЛОЙ спирали в виде ручейка
     generateRoundSpiralPath() {
-        const path = [];
-        const segments = 400; // Больше сегментов для плавности
-        const centerX = this.width / 2;
-        const centerY = this.height / 2;
-        
-        // Большая круглая спираль (3 оборота)
-        for (let i = 0; i <= segments; i++) {
-            const t = (i / segments) * Math.PI * 6; // 3 оборота
-            const spiralFactor = 1 - (i / segments) * 0.2; // Плавное сужение
-            const radius = Math.min(this.width, this.height) * 0.4 * spiralFactor;
-            
-            // Круговая спираль
-            const x = centerX + Math.cos(t) * radius;
-            const y = centerY + Math.sin(t) * radius;
-            
-            path.push({x, y});
-        }
-        
-        return path;
+    const path = [];
+
+    const centerX = this.width / 2;
+    const centerY = this.height / 2;
+
+    const turns = 3.2;                  // количество витков
+    const pointsPerTurn = 140;          // плотность
+    const totalPoints = Math.floor(turns * pointsPerTurn);
+
+    const startRadius = Math.min(this.width, this.height) * 0.42;
+    const endRadius   = Math.min(this.width, this.height) * 0.14;
+
+    for (let i = 0; i < totalPoints; i++) {
+        const t = i / (totalPoints - 1);
+
+        // Угол
+        const angle = t * turns * Math.PI * 2;
+
+        // Радиус уменьшается ЛИНЕЙНО — ключевой момент
+        const radius = startRadius - t * (startRadius - endRadius);
+
+        const x = centerX + Math.cos(angle) * radius;
+        const y = centerY + Math.sin(angle) * radius;
+
+        path.push({ x, y });
     }
+
+    return path;
+}
     formatTime(ms) {
     const totalSeconds = Math.max(0, Math.floor(ms / 1000));
     const minutes = Math.floor(totalSeconds / 60);
@@ -265,7 +280,7 @@ updateEffects(delta) {
     createChain() {
         this.chain.balls = [];
         const ballCount = 18 + this.level * 2;
-        const spacing = 0.022; // Расстояние между шарами
+        const spacing = 0.028; // Расстояние между шарами
         
         for (let i = 0; i < ballCount; i++) {
             const position = i * spacing;
@@ -314,7 +329,9 @@ updateEffects(delta) {
         
         this.gameLoopId = requestAnimationFrame(gameLoop);
     }
-    
+    updateWhirlpool(delta) {
+    this.whirlpool.angle += 0.02 * delta;
+}
     update(delta) {
     if (this.state !== GAME_STATE.PLAY) return;
 
@@ -330,6 +347,7 @@ updateEffects(delta) {
     ) {
         this.lives++;
         this.lastLifeRestore = Date.now();
+        this.updateWhirlpool(delta);
     }
 }
     
@@ -360,7 +378,7 @@ updateEffects(delta) {
             if (i === 0) {
                 ball.position = this.chain.headPosition;
             } else {
-                const targetPos = this.chain.balls[i-1].position - 0.02;
+                const targetPos = this.chain.balls[i-1].position - 0.03;
                 const diff = targetPos - ball.position;
                 
                 if (Math.abs(diff) > 0.001) {
@@ -1017,25 +1035,46 @@ drawAim() {
         }
     }
     drawWhirlpool() {
-    const end = this.getPathPoint(0.85);
-    const time = Date.now() * 0.002;
+    const { x, y, radius, angle } = this.whirlpool;
+    const ctx = this.ctx;
 
-    this.ctx.save();
-    this.ctx.translate(end.x, end.y);
-    this.ctx.rotate(time);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
 
-    const r = 45;
-    const grad = this.ctx.createRadialGradient(0, 0, 5, 0, 0, r);
-    grad.addColorStop(0, ART.colors.whirlpoolCenter);
-    grad.addColorStop(1, ART.colors.whirlpoolEdge);
+    // Внешний круг
+    const outer = ctx.createRadialGradient(0, 0, radius * 0.3, 0, 0, radius);
+    outer.addColorStop(0, 'rgba(120,180,190,0.9)');
+    outer.addColorStop(1, 'rgba(40,90,110,0.9)');
 
-    this.ctx.fillStyle = grad;
-    this.ctx.beginPath();
-    this.ctx.arc(0, 0, r, 0, Math.PI * 2);
-    this.ctx.fill();
+    ctx.fillStyle = outer;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.fill();
 
-    this.ctx.restore();
+    // Спираль
+    ctx.strokeStyle = 'rgba(220,245,255,0.6)';
+    ctx.lineWidth = 3;
+
+    ctx.beginPath();
+    for (let a = 0; a < Math.PI * 2.5; a += 0.2) {
+        const r = radius * (1 - a / (Math.PI * 2.5));
+        const px = Math.cos(a) * r;
+        const py = Math.sin(a) * r;
+        if (a === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+
+    // Центр
+    ctx.fillStyle = 'rgba(10,30,40,0.9)';
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * 0.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
 }
+
     drawGameOverScreen() {
         // Фон
         this.ctx.fillStyle = 'rgba(26, 35, 47, 0.95)';
@@ -1144,9 +1183,11 @@ drawAim() {
     this.ctx.fillStyle = gradient;
     this.ctx.fillRect(0, 0, this.width, this.height);
 
+    this.drawBackground();
     this.drawClouds();
     this.drawPath();
     this.drawChain();
+    this.drawWhirlpool();
     this.drawProjectiles();
     this.drawFrog();
     this.drawEffects();
