@@ -181,7 +181,7 @@ if (this.lives < this.maxLives) {
     );
 }
 
-ctx.restore();
+ctx.restore();}
     // Добавьте этот метод в класс ZumaGame
 updateEffects(delta) {
     // Обновление частиц
