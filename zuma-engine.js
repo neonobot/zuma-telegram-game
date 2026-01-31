@@ -174,14 +174,14 @@ class ZumaGame {
         ctx.textBaseline = 'top';
 
         ctx.fillText(
-           for (let i = 0; i < this.maxLives; i++) {
+           for (let i = 0; i < this.maxLives; i++) 
             x,
             y + 38
         );
     }
 
     ctx.restore();
-}}
+}
     // Добавьте этот метод в класс ZumaGame
 updateEffects(delta) {
     // Обновление частиц
