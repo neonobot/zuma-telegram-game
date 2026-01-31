@@ -181,7 +181,7 @@ class ZumaGame {
     }
 
     ctx.restore();
-}
+}}
     // Добавьте этот метод в класс ZumaGame
 updateEffects(delta) {
     // Обновление частиц
