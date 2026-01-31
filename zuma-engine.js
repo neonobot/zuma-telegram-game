@@ -17,10 +17,10 @@ const assets = {
     victory: new Image(),
     defeat: new Image(),
 };
-assets.frog.src = 'frog_sprite.png'; // спрайт лягушонка
-assets.ballSprite.src = 'balls_spritesheet.png'; // 6 шариков
-assets.victory.src = 'victory.png';
-assets.defeat.src = 'defeat.png';
+assets.frog.src = 'assets/frog_sprite.png';
+assets.ballSprite.src = 'assets/balls_spritesheet.png';
+assets.victory.src = 'assets/victory.png';
+assets.defeat.src = 'assets/defeat.png';
 
 // ----- Game state -----
 let gameState = 'start'; // start, play, victory, defeat
