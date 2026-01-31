@@ -86,7 +86,9 @@ canvas.addEventListener('mousemove', (e) => {
 
     const dx = mx - game.frog.x;
     const dy = my - game.frog.y;
+
     game.frog.angle = Math.atan2(dy, dx) * 180 / Math.PI;
+    game.frog.angle = Math.max(-160, Math.min(160, game.frog.angle));
 });
 
 /* =========================
