@@ -822,8 +822,9 @@ drawAim() {
             y + Math.sin(a) * 28
         );
         this.ctx.stroke();
+    } // <- ЗАКРЫТ ЦИКЛ ДЛЯ ПРОЖИЛОК
 
-    // 🌸 ЛОТОС (ВОТ ТУТ!)
+    // 🌸 ЛОТОС
     this.ctx.fillStyle = ART.colors.lotus;
     for (let i = 0; i < 5; i++) {
         const a = i * Math.PI * 2 / 5;
@@ -835,7 +836,7 @@ drawAim() {
         );
         this.ctx.fill();
     }
-}
+} // <- ЗАКРЫТ МЕТОД drawLilyPad
     
     drawDetailedFrog() {
         // Тело (большое и круглое)
