@@ -822,7 +822,6 @@ drawAim() {
             y + Math.sin(a) * 28
         );
         this.ctx.stroke();
-    }
 
     // 🌸 ЛОТОС (ВОТ ТУТ!)
     this.ctx.fillStyle = ART.colors.lotus;
