@@ -1,5 +1,25 @@
 // zuma-engine.js - Версия 3.0 с улучшенной графикой
 console.log('Zuma Frog Game Engine loading...');
+const ART = {
+    colors: {
+        water: '#6FB7B1',
+        waterDark: '#4FA19B',
+        streamEdge: '#5A9F99',
+
+        frog: '#5FA77A',
+        frogShadow: '#3E6F58',
+
+        lily: '#6EA96E',
+        lotus: '#F3B6C4',
+
+        whirlpoolCenter: '#3E6F73',
+        whirlpoolEdge: '#7FC6C2',
+
+        bugRed: '#E55A5A'
+    },
+
+    shadowColor: 'rgba(0, 40, 30, 0.25)'
+};
 
 class ZumaGame {
     constructor(canvasId) {
@@ -35,7 +55,9 @@ class ZumaGame {
         // Игровые переменные
         this.score = 0;
         this.level = 1;
-        this.lives = 5;
+        this.lives = 3;
+        this.maxLives = 3;
+        this.lastLifeRestore = Date.now();
         this.isPaused = false;
         this.gameOver = false;
         this.lastTime = 0;
@@ -98,6 +120,68 @@ class ZumaGame {
         
         return path;
     }
+    formatTime(ms) {
+    const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+
+    return `${minutes.toString().padStart(2, '0')}:${seconds
+        .toString()
+        .padStart(2, '0')}`;
+}
+    drawLivesUI() {
+    const ctx = this.ctx;
+    const x = 20;
+    const y = 20;
+    const heartSize = 18;
+    const spacing = 26;
+
+    ctx.save();
+
+    // Фон-плашка
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+    ctx.strokeStyle = 'rgba(120, 180, 150, 0.8)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(x - 10, y - 10, 200, 60, 16);
+    ctx.fill();
+    ctx.stroke();
+
+    // Сердца
+    for (let i = 0; i < this.maxLives; i++) {
+        const hx = x + i * spacing;
+        const hy = y + 20;
+
+        if (i < this.lives) {
+            ctx.fillStyle = '#E57373'; // тёплый красный
+        } else {
+            ctx.fillStyle = 'rgba(200, 200, 200, 0.8)';
+        }
+
+        ctx.font = `${heartSize}px serif`;
+        ctx.fillText('❤️', hx, hy);
+    }
+
+    // Таймер восстановления
+    if (this.lives < this.maxLives) {
+        const now = Date.now();
+        const timeLeft =
+            600000 - (now - this.lastLifeRestore);
+
+        ctx.fillStyle = '#4E6E5D';
+        ctx.font = '14px Nunito, Arial, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+
+        ctx.fillText(
+           for (let i = 0; i < this.maxLives; i++) {
+            x,
+            y + 38
+        );
+    }
+
+    ctx.restore();
+}
     // Добавьте этот метод в класс ZumaGame
 updateEffects(delta) {
     // Обновление частиц
@@ -187,6 +271,9 @@ updateEffects(delta) {
         }
         
         this.chain.balls.sort((a, b) => a.position - b.position);
+        if (this.chain.balls.length > 0) {
+    this.chain.balls[this.chain.balls.length - 1].type = 'bug';
+}
         this.chain.headPosition = this.chain.balls[0]?.position || 0;
     }
     
@@ -218,18 +305,20 @@ updateEffects(delta) {
     }
     
     update(delta) {
-        // Обновляем состояние лягушки
-        this.updateFrog(delta);
-        
-        // Движение цепочки
-        this.updateChain(delta);
-        
-        // Обновление снарядов
-        this.updateProjectiles(delta);
-        
-        // Обновление эффектов
-        this.updateEffects(delta);
+    this.updateFrog(delta);
+    this.updateChain(delta);
+    this.updateProjectiles(delta);
+    this.updateEffects(delta);
+
+    // ❤️ Восстановление жизни раз в 10 минут
+    if (
+        this.lives < 3 &&
+        Date.now() - this.lastLifeRestore > 600000
+    ) {
+        this.lives++;
+        this.lastLifeRestore = Date.now();
     }
+}
     
     updateFrog(delta) {
         // Анимация улыбки
@@ -479,21 +568,46 @@ drawChain() {
     for (let i = 0; i < this.chain.balls.length; i++) {
         const ball = this.chain.balls[i];
         const point = this.getPathPoint(ball.position);
-        
-        // Добавляем колебание
+
         const wobbleX = Math.sin(ball.wobble) * 2;
         const wobbleY = Math.cos(ball.wobble) * 2;
-        
-        // Рисуем блестящий шар
-        this.drawShinyBall(
-            point.x + wobbleX,
-            point.y + wobbleY,
-            ball.radius,
-            ball.color
-        );
+
+        const x = point.x + wobbleX;
+        const y = point.y + wobbleY;
+
+        // 🐞 ЕСЛИ ЭТО ЖУЧОК — РИСУЕМ ЕГО
+        if (ball.type === 'bug') {
+            this.drawBug(x, y, ball.radius);
+        } 
+        // ⚪ ОБЫЧНЫЙ ШАР
+        else {
+            this.drawShinyBall(x, y, ball.radius, ball.color);
+        }
     }
 }
 
+drawBug(x, y, r) {
+    // Тело
+    this.ctx.fillStyle = ART.colors.bugRed;
+    this.ctx.beginPath();
+    this.ctx.arc(x, y, r, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    // Линия
+    this.ctx.strokeStyle = '#000';
+    this.ctx.lineWidth = 2;
+    this.ctx.beginPath();
+    this.ctx.moveTo(x, y - r);
+    this.ctx.lineTo(x, y + r);
+    this.ctx.stroke();
+
+    // Точки
+    this.ctx.beginPath();
+    this.ctx.arc(x - 6, y - 4, 3, 0, Math.PI * 2);
+    this.ctx.arc(x + 6, y + 4, 3, 0, Math.PI * 2);
+    this.ctx.fillStyle = '#000';
+    this.ctx.fill();
+}    
 drawShinyBall(x, y, radius, color) {
     // Основной цвет
     this.ctx.fillStyle = color;
@@ -678,32 +792,51 @@ drawAim() {
     }
     
     drawLilyPad(x, y) {
-        // Большой лист кувшинки
-        this.ctx.fillStyle = '#81C784';
+    // 🌑 Тень под кувшинкой
+    this.ctx.fillStyle = ART.shadowColor;
+    this.ctx.beginPath();
+    this.ctx.ellipse(x, y + 12, 65, 18, 0, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    // 🍃 Основной лист
+    this.ctx.fillStyle = ART.colors.lily;
+    this.ctx.beginPath();
+    this.ctx.ellipse(x, y, 70, 35, 0, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    // 🍃 Светлая часть
+    this.ctx.fillStyle = this.lightenColor(ART.colors.lily, 12);
+    this.ctx.beginPath();
+    this.ctx.ellipse(x, y - 3, 60, 28, 0, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    // 🌿 Прожилки
+    this.ctx.strokeStyle = this.darkenColor(ART.colors.lily, 18);
+    this.ctx.lineWidth = 2;
+    for (let i = 0; i < 7; i++) {
+        const a = i * Math.PI * 2 / 7;
         this.ctx.beginPath();
-        this.ctx.ellipse(x, y, 70, 35, 0, 0, Math.PI * 2);
-        this.ctx.fill();
-        
-        // Детали листа
-        this.ctx.fillStyle = '#A5D6A7';
-        this.ctx.beginPath();
-        this.ctx.ellipse(x, y, 60, 30, 0, 0, Math.PI * 2);
-        this.ctx.fill();
-        
-        // Прожилки на листе
-        this.ctx.strokeStyle = '#4CAF50';
-        this.ctx.lineWidth = 2;
-        for (let i = 0; i < 8; i++) {
-            const angle = (i / 8) * Math.PI * 2;
-            this.ctx.beginPath();
-            this.ctx.moveTo(x, y);
-            this.ctx.lineTo(
-                x + Math.cos(angle) * 60,
-                y + Math.sin(angle) * 30
-            );
-            this.ctx.stroke();
-        }
+        this.ctx.moveTo(x, y);
+        this.ctx.lineTo(
+            x + Math.cos(a) * 60,
+            y + Math.sin(a) * 28
+        );
+        this.ctx.stroke();
     }
+
+    // 🌸 ЛОТОС (ВОТ ТУТ!)
+    this.ctx.fillStyle = ART.colors.lotus;
+    for (let i = 0; i < 5; i++) {
+        const a = i * Math.PI * 2 / 5;
+        this.ctx.beginPath();
+        this.ctx.ellipse(
+            x + Math.cos(a) * 18,
+            y + Math.sin(a) * 8 - 8,
+            8, 16, a, 0, Math.PI * 2
+        );
+        this.ctx.fill();
+    }
+}
     
     drawDetailedFrog() {
         // Тело (большое и круглое)
@@ -800,11 +933,16 @@ drawAim() {
         if (this.chain.path.length < 2) return;
         
         // Толстый ручеек с градиентом
-        const gradient = this.ctx.createLinearGradient(0, 0, this.width, this.height);
-        gradient.addColorStop(0, 'rgba(33, 150, 243, 0.7)');
-        gradient.addColorStop(0.5, 'rgba(100, 181, 246, 0.8)');
-        gradient.addColorStop(1, 'rgba(66, 165, 245, 0.7)');
-        
+        const gradient = this.ctx.createLinearGradient(0, 0, 0, this.height);
+        gradient.addColorStop(0, ART.colors.water);
+        gradient.addColorStop(1, ART.colors.waterDark);
+
+        // Тень
+        this.ctx.strokeStyle = ART.shadowColor;
+        this.ctx.lineWidth = 32;
+        this.ctx.stroke();
+
+
         // Основной путь (толстый ручеек)
         this.ctx.strokeStyle = gradient;
         this.ctx.lineWidth = 25; // Толстый путь
@@ -840,7 +978,26 @@ drawAim() {
             this.ctx.fill();
         }
     }
-    
+    drawWhirlpool() {
+    const end = this.getPathPoint(0.85);
+    const time = Date.now() * 0.002;
+
+    this.ctx.save();
+    this.ctx.translate(end.x, end.y);
+    this.ctx.rotate(time);
+
+    const r = 45;
+    const grad = this.ctx.createRadialGradient(0, 0, 5, 0, 0, r);
+    grad.addColorStop(0, ART.colors.whirlpoolCenter);
+    grad.addColorStop(1, ART.colors.whirlpoolEdge);
+
+    this.ctx.fillStyle = grad;
+    this.ctx.beginPath();
+    this.ctx.arc(0, 0, r, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    this.ctx.restore();
+}
     drawGameOverScreen() {
         // Фон
         this.ctx.fillStyle = 'rgba(26, 35, 47, 0.95)';
@@ -936,9 +1093,9 @@ drawAim() {
     draw() {
         // Градиентный фон
         const gradient = this.ctx.createLinearGradient(0, 0, this.width, this.height);
-        gradient.addColorStop(0, '#E0F7FA');
+        gradient.addColorStop(0, '#A7C7C5');
         gradient.addColorStop(0.5, '#B3E5FC');
-        gradient.addColorStop(1, '#81D4FA');
+        gradient.addColorStop(1, '#9BBE8F');
         this.ctx.fillStyle = gradient;
         this.ctx.fillRect(0, 0, this.width, this.height);
         
@@ -947,6 +1104,9 @@ drawAim() {
         
         // Рисуем путь (ручеек)
         this.drawPath();
+
+        this.drawWhirlpool();
+
         
         // Цепочка шаров
         this.drawChain();
@@ -965,6 +1125,7 @@ drawAim() {
         
         // Прицел
         this.drawAim();
+        this.drawLivesUI();
     }
     
     drawClouds() {
