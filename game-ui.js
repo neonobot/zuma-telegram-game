@@ -78,7 +78,7 @@ canvas.addEventListener('click', () => {
 });
 
 canvas.addEventListener('mousemove', (e) => {
-    if (!game || game.state !== 'play') return;
+    if (!game || game.state !== 'PLAY') return;
 
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
