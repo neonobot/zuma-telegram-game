@@ -736,22 +736,45 @@ drawEffects() {
 
 drawNextBall() {
     if (!this.frog.nextBall) return;
-    
-    // Индикатор следующего шара в правом верхнем углу
-    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-    this.ctx.fillRect(this.width - 90, 20, 70, 70);
-    
-    this.ctx.strokeStyle = '#4CAF50';
-    this.ctx.lineWidth = 3;
-    this.ctx.strokeRect(this.width - 90, 20, 70, 70);
-    
-    this.ctx.font = 'bold 16px Nunito, Arial, sans-serif';
-    this.ctx.fillStyle = '#388E3C';
+
+    const x = this.width - 70;
+    const y = 60;
+
+    // Пульсация
+    const pulse = Math.sin(Date.now() * 0.004) * 4;
+
+    // Фон с градиентом
+    const bgGradient = this.ctx.createRadialGradient(
+        x, y, 10,
+        x, y, 40 + pulse
+    );
+    bgGradient.addColorStop(0, '#FFFDE7');
+    bgGradient.addColorStop(1, '#FFE082');
+
+    this.ctx.fillStyle = bgGradient;
+    this.ctx.beginPath();
+    this.ctx.roundRect(x - 40, y - 40, 80, 80, 20);
+    this.ctx.fill();
+
+    // Золотая рамка
+    this.ctx.strokeStyle = '#FFB300';
+    this.ctx.lineWidth = 4;
+    this.ctx.stroke();
+
+    // Текст
+    this.ctx.fillStyle = '#6D4C41';
+    this.ctx.font = 'bold 14px Nunito, Arial';
     this.ctx.textAlign = 'center';
-    this.ctx.fillText('СЛЕДУЮЩИЙ', this.width - 55, 40);
-    
+    this.ctx.fillText('ДАЛЕЕ', x, y - 28);
+
     // Шар
-    this.drawShinyBall(this.width - 55, 65, 20, this.frog.nextBall);
+    this.drawShinyBall(x, y + 8, 20 + pulse * 0.3, this.frog.nextBall);
+
+    // Блик
+    this.ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    this.ctx.beginPath();
+    this.ctx.arc(x - 10, y - 2, 6, 0, Math.PI * 2);
+    this.ctx.fill();
 }
 
 drawAim() {
