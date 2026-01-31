@@ -4,149 +4,138 @@ class ZumaGame {
     constructor(canvasId){
         this.canvas=document.getElementById(canvasId);
         this.ctx=this.canvas.getContext('2d');
-        this.width=this.canvas.width;
-        this.height=this.canvas.height;
-        this.state=GAME_STATE.PLAY;
+        this.width=this.canvas.width; this.height=this.canvas.height;
+        this.state=GAME_STATE.MENU;
         this.level=1;
-        this.colors=['#FFD1DC','#B5EAD7','#E6E6FA','#FFDAB9','#FFF8E1','#B3E0FF'];
-        this.projectiles=[];
-        this.chain={balls:[],path:[]};
-        this.frog={x:this.width/2,y:this.height/2,angle:-90,nextBall:null};
+        this.lives=3;
+        this.maxLives=3;
+        this.projectiles=[]; this.particles=[]; this.comboTexts=[];
+        this.chain={balls:[], path:[], speed:0.3, headPosition:0, freeze:0};
+        this.frog={x:this.width/2,y:this.height/2,angle:-90,nextBall:null,mouthOpen:false,state:'idle',blinkTimer:0,smile:0};
+        this.assets={frog:new Image()};
+        this.ballImages=[];
         this.loadAssets();
     }
 
     loadAssets(){
-        this.ballImgs = {};
-        for(const color of this.colors){
-            const img = new Image();
-            img.src = this.getBallPNG(color);
-            this.ballImgs[color] = img;
+        this.assets.frog.src='assets/frog.png';
+        for(let i=1;i<=6;i++){
+            let img=new Image();
+            img.src=`assets/ball${i}.png`;
+            this.ballImages.push(img);
         }
-        this.frogImg = new Image();
-        this.frogImg.src = this.getFrogPNG();
+        this.assets.frog.onload=()=>{ console.log('Frog loaded'); }
     }
 
-    getBallPNG(color){
-        const c=document.createElement('canvas');c.width=64;c.height=64;
-        const ctx=c.getContext('2d');
-        const g=ctx.createRadialGradient(32,32,5,32,32,30);
-        g.addColorStop(0,'#FFF'); g.addColorStop(0.3,color); g.addColorStop(1,color);
-        ctx.fillStyle=g; ctx.beginPath(); ctx.arc(32,32,30,0,Math.PI*2); ctx.fill();
-        return c.toDataURL();
-    }
+    init(){ this.resetGame(); this.startGameLoop(); }
 
-    getFrogPNG(){
-        const c=document.createElement('canvas');c.width=128;c.height=128;
-        const ctx=c.getContext('2d');
-        ctx.fillStyle='#66BB6A';ctx.beginPath();ctx.ellipse(64,64,50,35,0,0,Math.PI*2);ctx.fill();
-        ctx.fillStyle='#FFCDD2';ctx.beginPath();ctx.arc(44,54,12,0,Math.PI*2);ctx.arc(44,74,12,0,Math.PI*2);ctx.fill();
-        ctx.fillStyle='white';ctx.beginPath();ctx.arc(78,54,15,0,Math.PI*2);ctx.arc(78,74,15,0,Math.PI*2);ctx.fill();
-        ctx.fillStyle='#222';ctx.beginPath();ctx.arc(78,54,7,0,Math.PI*2);ctx.arc(78,74,7,0,Math.PI*2);ctx.fill();
-        return c.toDataURL();
-    }
-
-    init(){
+    resetGame(){
+        this.score=0; this.isPaused=false; this.gameOver=false; this.lastTime=0;
+        this.chain.path=this.generateRoundSpiralPath();
         this.createChain();
-        this.frog.nextBall=this.colors[Math.floor(Math.random()*this.colors.length)];
-        requestAnimationFrame(t=>this.loop(t));
+        this.frog.nextBall=this.getRandomBall();
     }
+
+    generateRoundSpiralPath(){
+        const path=[]; const cx=this.width/2,cy=this.height/2;
+        const turns=3,pointsPerTurn=160,total=Math.floor(turns*pointsPerTurn);
+        const startR=Math.min(this.width,this.height)*0.46,endR=Math.min(this.width,this.height)*0.22;
+        for(let i=0;i<total;i++){
+            const t=i/(total-1);
+            const angle=t*turns*Math.PI*2;
+            const radius=startR-t*(startR-endR);
+            path.push({x:cx+Math.cos(angle)*radius,y:cy+Math.sin(angle)*radius});
+        } return path;
+    }
+
+    getRandomBall(){ return this.ballImages[Math.floor(Math.random()*6)]; }
 
     createChain(){
-        this.chain.path=this.generateSpiral();
-        this.chain.balls=[];
-        const count=18+this.level*2;
-        for(let i=0;i<count;i++){
-            const pos=i/60;
-            this.chain.balls.push({position:pos,color:this.colors[Math.floor(Math.random()*this.colors.length)]});
+        this.chain.balls=[]; const spacing=0.028;
+        for(let i=0;i<18+this.level*2;i++){
+            const pos=i*spacing;
+            this.chain.balls.push({position:pos,image:this.getRandomBall(),radius:20,wobble:Math.random()*Math.PI*2,wobbleSpeed:0.02+Math.random()*0.02});
+        }
+        this.chain.headPosition=0;
+    }
+
+    startGameLoop(){
+        if(this.gameLoopId) cancelAnimationFrame(this.gameLoopId);
+        const loop=ts=>{ if(!this.isPaused&&!this.gameOver){ if(!this.lastTime)this.lastTime=ts; const delta=ts-this.lastTime; this.lastTime=ts; this.update(delta/16.67); this.draw(); } this.gameLoopId=requestAnimationFrame(loop); };
+        this.gameLoopId=requestAnimationFrame(loop);
+    }
+
+    update(delta){
+        this.updateFrog(delta); this.updateProjectiles(delta);
+        this.updateChain(delta); this.updateEffects(delta);
+    }
+
+    updateFrog(delta){
+        this.frog.smile=Math.sin(Date.now()*0.002)*0.3;
+        this.frog.blinkTimer+=delta;
+        if(this.frog.blinkTimer>300){ this.frog.blinkTimer=0; this.frog.state='blinking'; setTimeout(()=>{ if(this.frog.state==='blinking') this.frog.state='idle'; },150); }
+    }
+
+    updateChain(delta){
+        if(this.chain.freeze>0){ this.chain.freeze--; return; }
+        const speedMult=0.25; this.chain.headPosition+=this.chain.speed*delta*speedMult;
+        for(let i=0;i<this.chain.balls.length;i++){
+            const b=this.chain.balls[i];
+            if(i===0) b.position=this.chain.headPosition;
+            else{ const target=this.chain.balls[i-1].position-0.03; b.position+= (target-b.position)*0.05*delta*speedMult; }
+            b.wobble+=b.wobbleSpeed*delta;
         }
     }
 
-    generateSpiral(){
-        const path=[],cx=this.width/2,cy=this.height/2;
-        const turns=3,points=160*turns;
-        for(let i=0;i<points;i++){
-            const t=i/(points-1);
-            const angle=t*turns*Math.PI*2;
-            const r=this.width*0.45-t*(this.width*0.23);
-            path.push({x:cx+Math.cos(angle)*r,y:cy+Math.sin(angle)*r});
+    updateProjectiles(delta){
+        for(let i=this.projectiles.length-1;i>=0;i--){
+            const p=this.projectiles[i];
+            p.x+=p.vx*delta; p.y+=p.vy*delta;
+            p.life-=delta;
+            if(p.life<=0){ this.projectiles.splice(i,1); continue; }
         }
-        return path;
     }
 
-    loop(){
-        this.update();this.draw();
-        if(this.chain.balls.length===0) { this.state=GAME_STATE.WIN; showEndScreen(true); return; }
-        requestAnimationFrame(t=>this.loop());
-    }
-
-    update(){
-        for(const ball of this.chain.balls){
-            ball.position+=0.001;
-            if(ball.position>1){ this.state=GAME_STATE.LOSE; showEndScreen(false); return; }
-        }
-        for(const p of this.projectiles){
-            p.x+=p.vx; p.y+=p.vy;
-            // Проверка попадания
-            for(let i=0;i<this.chain.balls.length;i++){
-                const ball = this.chain.balls[i];
-                const idx=Math.floor(ball.position*(this.chain.path.length-1));
-                const pos=this.chain.path[idx];
-                const dx=pos.x-p.x; const dy=pos.y-p.y;
-                if(Math.sqrt(dx*dx+dy*dy)<32){
-                    this.chain.balls.splice(i,1);
-                    p.hit=true; break;
-                }
-            }
-        }
-        this.projectiles = this.projectiles.filter(p=>!p.hit);
+    updateEffects(delta){
+        for(let i=this.particles.length-1;i>=0;i--){ const p=this.particles[i]; p.life--; if(p.life<=0) this.particles.splice(i,1); }
+        for(let i=this.comboTexts.length-1;i>=0;i--){ const t=this.comboTexts[i]; t.life--; if(t.life<=0) this.comboTexts.splice(i,1); }
     }
 
     draw(){
-        const ctx=this.ctx;
-        ctx.clearRect(0,0,this.width,this.height);
-        this.drawPath(); this.drawChain(); this.drawFrog();
-        this.drawProjectiles();
+        this.ctx.clearRect(0,0,this.width,this.height);
+        this.drawChain(); this.drawFrog(); this.drawProjectiles(); this.drawEffects();
     }
 
-    drawPath(){
-        const ctx=this.ctx;
-        if(this.chain.path.length<2) return;
-        ctx.strokeStyle='#6FB7B1';ctx.lineWidth=25;
-        ctx.beginPath(); ctx.moveTo(this.chain.path[0].x,this.chain.path[0].y);
-        for(const p of this.chain.path) ctx.lineTo(p.x,p.y);
-        ctx.stroke();
+    drawFrog(){
+        const f=this.frog,ctx=this.ctx,img=this.assets.frog;
+        ctx.save(); ctx.translate(f.x,f.y); ctx.rotate(f.angle*Math.PI/180);
+        ctx.drawImage(img,-img.width/2,-img.height/2,img.width,img.height);
+        ctx.restore();
     }
 
     drawChain(){
         const ctx=this.ctx;
-        for(const ball of this.chain.balls){
-            const idx=Math.floor(ball.position*(this.chain.path.length-1));
-            const p=this.chain.path[idx];
-            ctx.drawImage(this.ballImgs[ball.color],p.x-32,p.y-32,64,64);
+        for(const b of this.chain.balls){
+            const p=this.getPathPoint(b.position);
+            const wobX=Math.sin(b.wobble)*2, wobY=Math.cos(b.wobble)*2;
+            ctx.drawImage(b.image,p.x-b.radius+wobX,p.y-b.radius+wobY,b.radius*2,b.radius*2);
         }
-    }
-
-    drawFrog(){
-        const ctx=this.ctx;
-        ctx.save(); ctx.translate(this.frog.x,this.frog.y); ctx.rotate(this.frog.angle*Math.PI/180);
-        ctx.drawImage(this.frogImg,-64,-64,128,128); ctx.restore();
     }
 
     drawProjectiles(){
-        const ctx=this.ctx;
-        for(const p of this.projectiles){
-            ctx.drawImage(this.ballImgs[p.color],p.x-16,p.y-16,32,32);
-        }
+        for(const p of this.projectiles) this.ctx.drawImage(p.image,p.x-p.radius,p.y-p.radius,p.radius*2,p.radius*2);
     }
+
+    getPathPoint(t){ t=Math.max(0,Math.min(1,t)); const path=this.chain.path; const idx=t*(path.length-1)|0; return path[idx]; }
 
     shoot(){
         if(!this.frog.nextBall) return;
-        this.projectiles.push({
-            x:this.frog.x,y:this.frog.y,
-            vx:Math.cos(this.frog.angle*Math.PI/180)*10,
-            vy:Math.sin(this.frog.angle*Math.PI/180)*10,
-            color:this.frog.nextBall
-        });
-        this.frog.nextBall=this.colors[Math.floor(Math.random()*this.colors.length)];
+        const angle=this.frog.angle*Math.PI/180,speed=10;
+        const p={x:this.frog.x+Math.cos(angle)*50,y:this.frog.y+Math.sin(angle)*50,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,image:this.frog.nextBall,radius:20,life:150};
+        this.projectiles.push(p);
+        this.frog.mouthOpen=true;
+        this.frog.nextBall=this.getRandomBall();
+        setTimeout(()=>{ this.frog.mouthOpen=false; },100);
     }
+
 }
