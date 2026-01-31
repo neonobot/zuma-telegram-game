@@ -1,57 +1,149 @@
+// game-ui.js — версия под state-машину
+
 const LIFE_RESTORE_TIME = 10 * 60 * 1000;
 const MAX_LIVES = 3;
 
 let game = null;
 
+/* =========================
+   LIVES STORAGE
+========================= */
+
 function loadLives() {
-    let data = JSON.parse(localStorage.getItem('zumaLives')) || { lives: MAX_LIVES, lastLost: Date.now() };
+    let data = JSON.parse(localStorage.getItem('zumaLives'));
+
+    if (!data) {
+        data = {
+            lives: MAX_LIVES,
+            lastLost: Date.now()
+        };
+    }
+
     const now = Date.now();
     const restored = Math.floor((now - data.lastLost) / LIFE_RESTORE_TIME);
+
     if (restored > 0) {
         data.lives = Math.min(MAX_LIVES, data.lives + restored);
         data.lastLost = now;
     }
+
     localStorage.setItem('zumaLives', JSON.stringify(data));
     return data.lives;
 }
 
 function saveLives(lives) {
-    localStorage.setItem('zumaLives', JSON.stringify({ lives, lastLost: Date.now() }));
+    localStorage.setItem(
+        'zumaLives',
+        JSON.stringify({
+            lives,
+            lastLost: Date.now()
+        })
+    );
 }
+
+/* =========================
+   GAME START
+========================= */
 
 document.getElementById('startButton').onclick = () => {
     document.getElementById('startScreen').style.display = 'none';
     document.getElementById('gameContainer').style.display = 'block';
 
     const music = document.getElementById('bgMusic');
-    if (music) { music.volume = 0.25; music.play().catch(()=>{}); }
+    if (music) {
+        music.volume = 0.25;
+        music.play().catch(() => {});
+    }
 
     game = new ZumaGame('gameCanvas');
-    game.level = parseInt(document.getElementById('startLevel').textContent) || 1;
     game.lives = loadLives();
     game.init();
 };
 
+/* =========================
+   INPUT → ENGINE
+========================= */
+
 const canvas = document.getElementById('gameCanvas');
-canvas.addEventListener('click', () => { if (game) game.handleClick(); if (game.state==='LOSE') saveLives(game.lives); });
-canvas.addEventListener('mousemove', e => updateFrogAim(e.clientX, e.clientY));
-canvas.addEventListener('touchmove', e => { e.preventDefault(); const t=e.touches[0]; updateFrogAim(t.clientX,t.clientY); }, { passive: false });
+
+canvas.addEventListener('click', () => {
+    if (!game) return;
+
+    game.handleClick();
+
+    // если проиграли — сохраняем жизни
+    if (game.state === 'lose') {
+        saveLives(game.lives);
+    }
+});
+
+canvas.addEventListener('mousemove', (e) => {
+    if (!game || game.state !== 'PLAY') return;
+
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+
+    const dx = mx - game.frog.x;
+    const dy = my - game.frog.y;
+
+    game.frog.angle = Math.atan2(dy, dx) * 180 / Math.PI;
+    game.frog.angle = Math.max(-160, Math.min(160, game.frog.angle));
+});
+
+/* =========================
+   PAUSE (опционально)
+========================= */
+
+document.getElementById('pauseButton')?.addEventListener('click', () => {
+    if (game) game.isPaused = !game.isPaused;
+});
 
 function updateFrogAim(clientX, clientY) {
-    if (!game || game.state!=='PLAY') return;
+    if (!game || game.state !== 'PLAY') return;
+
     const rect = canvas.getBoundingClientRect();
-    const x = (clientX-rect.left)*(canvas.width/rect.width);
-    const y = (clientY-rect.top)*(canvas.height/rect.height);
+    const x = (clientX - rect.left) * (canvas.width / rect.width);
+    const y = (clientY - rect.top) * (canvas.height / rect.height);
+
     const dx = x - game.frog.x;
     const dy = y - game.frog.y;
+
     game.frog.angle = Math.atan2(dy, dx) * 180 / Math.PI;
     game.frog.angle = Math.max(-170, Math.min(170, game.frog.angle));
 }
 
-// touchshoot
-let isDragging = false;
-canvas.addEventListener('touchstart', () => { isDragging=false; });
-canvas.addEventListener('touchmove', e => { isDragging=true; const t=e.touches[0]; updateFrogAim(t.clientX,t.clientY); }, { passive:false });
-canvas.addEventListener('touchend', () => { if (game && game.state==='PLAY') game.shoot(); });
+// мышь
+canvas.addEventListener('mousemove', e => {
+    updateFrogAim(e.clientX, e.clientY);
+});
 
-document.getElementById('pauseButton')?.addEventListener('click', () => { if (game) game.isPaused=!game.isPaused; });
+// палец
+canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    const t = e.touches[0];
+    updateFrogAim(t.clientX, t.clientY);
+}, { passive: false });
+let isDragging = false;
+
+canvas.addEventListener('touchstart', () => {
+    isDragging = false;
+});
+
+canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    isDragging = true;
+
+    const t = e.touches[0];
+    updateFrogAim(t.clientX, t.clientY);
+}, { passive: false });
+
+canvas.addEventListener('touchend', () => {
+    if (game && game.state === 'PLAY') {
+        game.shoot();
+    }
+});
+
+game = new ZumaGame('gameCanvas');
+game.lives = loadLives();
+game.startGame();
