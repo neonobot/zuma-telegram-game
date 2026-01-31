@@ -98,3 +98,30 @@ canvas.addEventListener('mousemove', (e) => {
 document.getElementById('pauseButton')?.addEventListener('click', () => {
     if (game) game.isPaused = !game.isPaused;
 });
+
+function updateFrogAim(clientX, clientY) {
+    if (!game || game.state !== 'PLAY') return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = (clientX - rect.left) * (canvas.width / rect.width);
+    const y = (clientY - rect.top) * (canvas.height / rect.height);
+
+    const dx = x - game.frog.x;
+    const dy = y - game.frog.y;
+
+    game.frog.angle = Math.atan2(dy, dx) * 180 / Math.PI;
+    game.frog.angle = Math.max(-170, Math.min(170, game.frog.angle));
+}
+
+// мышь
+canvas.addEventListener('mousemove', e => {
+    updateFrogAim(e.clientX, e.clientY);
+});
+
+// палец
+canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    const t = e.touches[0];
+    updateFrogAim(t.clientX, t.clientY);
+}, { passive: false });
+
