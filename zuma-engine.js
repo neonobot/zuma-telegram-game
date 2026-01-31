@@ -163,25 +163,25 @@ class ZumaGame {
     }
 
     // Таймер восстановления
-    if (this.lives < this.maxLives) {
-        const now = Date.now();
-        const timeLeft =
-            600000 - (now - this.lastLifeRestore);
+if (this.lives < this.maxLives) {
+    const now = Date.now();
+    const timeLeft = Math.max(0, 600000 - (now - this.lastLifeRestore));
+    const minutes = Math.floor(timeLeft / 60000);
+    const seconds = Math.floor((timeLeft % 60000) / 1000);
 
-        ctx.fillStyle = '#4E6E5D';
-        ctx.font = '14px Nunito, Arial, sans-serif';
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'top';
+    ctx.fillStyle = '#4E6E5D';
+    ctx.font = '14px Nunito, Arial, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
 
-        ctx.fillText(
-           for (let i = 0; i < this.maxLives; i++) 
-            x,
-            y + 38
-        );
-    }
-
-    ctx.restore();
+    ctx.fillText(
+        `${minutes}:${seconds.toString().padStart(2, '0')}`,
+        x,
+        y + 38
+    );
 }
+
+ctx.restore();
     // Добавьте этот метод в класс ZumaGame
 updateEffects(delta) {
     // Обновление частиц
