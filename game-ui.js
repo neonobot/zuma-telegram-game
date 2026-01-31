@@ -1,79 +1,98 @@
+// game-ui.js — версия под state-машину
+
 const LIFE_RESTORE_TIME = 10 * 60 * 1000;
 const MAX_LIVES = 3;
 
+let game = null;
+
+/* =========================
+   LIVES STORAGE
+========================= */
+
 function loadLives() {
     let data = JSON.parse(localStorage.getItem('zumaLives'));
+
     if (!data) {
-        data = { lives: MAX_LIVES, lastLost: Date.now() };
+        data = {
+            lives: MAX_LIVES,
+            lastLost: Date.now()
+        };
     }
 
     const now = Date.now();
     const restored = Math.floor((now - data.lastLost) / LIFE_RESTORE_TIME);
-    data.lives = Math.min(MAX_LIVES, data.lives + restored);
-    if (restored > 0) data.lastLost = now;
+
+    if (restored > 0) {
+        data.lives = Math.min(MAX_LIVES, data.lives + restored);
+        data.lastLost = now;
+    }
 
     localStorage.setItem('zumaLives', JSON.stringify(data));
     return data.lives;
 }
 
-function loseLife() {
-    const data = JSON.parse(localStorage.getItem('zumaLives'));
-    data.lives = Math.max(0, data.lives - 1);
-    data.lastLost = Date.now();
-    localStorage.setItem('zumaLives', JSON.stringify(data));
+function saveLives(lives) {
+    localStorage.setItem(
+        'zumaLives',
+        JSON.stringify({
+            lives,
+            lastLost: Date.now()
+        })
+    );
 }
 
-let game = null;
+/* =========================
+   GAME START
+========================= */
 
 document.getElementById('startButton').onclick = () => {
     document.getElementById('startScreen').style.display = 'none';
     document.getElementById('gameContainer').style.display = 'block';
 
     const music = document.getElementById('bgMusic');
-    music.volume = 0.25;
-    music.play().catch(()=>{});
+    if (music) {
+        music.volume = 0.25;
+        music.play().catch(() => {});
+    }
 
     game = new ZumaGame('gameCanvas');
     game.lives = loadLives();
     game.init();
-
-    updateUI();
 };
 
-document.getElementById('menuButton').onclick = () => {
-    location.reload();
-};
+/* =========================
+   INPUT → ENGINE
+========================= */
 
-document.getElementById('pauseButton').onclick = () => {
-    game.isPaused = !game.isPaused;
-};
+const canvas = document.getElementById('gameCanvas');
 
-document.getElementById('nextLevelBtn').onclick = () => {
-    document.getElementById('winScreen').style.display = 'none';
-    game.nextLevel();
-};
-
-document.getElementById('toMenuBtn').onclick = () => {
-    location.reload();
-};
-
-function updateUI() {
+canvas.addEventListener('click', () => {
     if (!game) return;
 
-    document.getElementById('score').textContent = game.score;
-    document.getElementById('level').textContent = game.level;
-    document.getElementById('lives').textContent = game.lives;
+    game.handleClick();
 
-    if (game.gameOver) {
-        loseLife();
-        location.reload();
+    // если проиграли — сохраняем жизни
+    if (game.state === 'lose') {
+        saveLives(game.lives);
     }
+});
 
-    if (game.levelCompleted) {
-        document.getElementById('winScreen').style.display = 'flex';
-    }
+canvas.addEventListener('mousemove', (e) => {
+    if (!game || game.state !== 'play') return;
 
-    requestAnimationFrame(updateUI);
-}
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
 
-updateUI();
+    const dx = mx - game.frog.x;
+    const dy = my - game.frog.y;
+    game.frog.angle = Math.atan2(dy, dx) * 180 / Math.PI;
+});
+
+/* =========================
+   PAUSE (опционально)
+========================= */
+
+document.getElementById('pauseButton')?.addEventListener('click', () => {
+    if (game) game.isPaused = !game.isPaused;
+});
