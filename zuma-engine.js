@@ -37,7 +37,9 @@ class ZumaGame {
         if (!this.canvas) {
             throw new Error('Canvas not found!');
         }
-        
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+
         this.ctx = this.canvas.getContext('2d');
         this.width = this.canvas.width;
         this.height = this.canvas.height;
@@ -143,6 +145,16 @@ class ZumaGame {
 
     return path;
 }
+    resize() {
+    const scale = Math.min(
+        window.innerWidth / 800,
+        window.innerHeight / 600
+    );
+
+    this.canvas.style.width = `${800 * scale}px`;
+    this.canvas.style.height = `${600 * scale}px`;
+}
+
 
     formatTime(ms) {
     const totalSeconds = Math.max(0, Math.floor(ms / 1000));
@@ -155,57 +167,53 @@ class ZumaGame {
 }
     drawLivesUI() {
     const ctx = this.ctx;
-    const x = 20;
-    const y = 20;
-    const heartSize = 18;
-    const spacing = 26;
+    const x = 24;
+    const y = 24;
 
     ctx.save();
 
-    // Фон-плашка
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
-    ctx.strokeStyle = 'rgba(120, 180, 150, 0.8)';
+    // мягкая плашка
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.strokeStyle = '#A5D6A7';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.roundRect(x - 10, y - 10, 200, 60, 16);
+    ctx.roundRect(x - 12, y - 12, 160, 56, 18);
     ctx.fill();
     ctx.stroke();
 
-    // Сердца
     for (let i = 0; i < this.maxLives; i++) {
-        const hx = x + i * spacing;
+        const hx = x + i * 30;
         const hy = y + 20;
 
-        if (i < this.lives) {
-            ctx.fillStyle = '#E57373'; // тёплый красный
-        } else {
-            ctx.fillStyle = 'rgba(200, 200, 200, 0.8)';
-        }
+        ctx.globalAlpha = i < this.lives ? 1 : 0.3;
 
-        ctx.font = `${heartSize}px serif`;
-        ctx.fillText('❤️', hx, hy);
+        ctx.font = '22px serif';
+        ctx.fillText('💗', hx, hy);
     }
 
-    // Таймер восстановления
-if (this.lives < this.maxLives) {
-    const now = Date.now();
-    const timeLeft = Math.max(0, 600000 - (now - this.lastLifeRestore));
-    const minutes = Math.floor(timeLeft / 60000);
-    const seconds = Math.floor((timeLeft % 60000) / 1000);
+    // таймер восстановления
+    if (this.lives < this.maxLives) {
+        const left = Math.max(
+            0,
+            600000 - (Date.now() - this.lastLifeRestore)
+        );
 
-    ctx.fillStyle = '#4E6E5D';
-    ctx.font = '14px Nunito, Arial, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
+        const s = Math.floor(left / 1000);
+        const m = Math.floor(s / 60);
 
-    ctx.fillText(
-        `${minutes}:${seconds.toString().padStart(2, '0')}`,
-        x,
-        y + 38
-    );
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#4E6E5D';
+        ctx.font = '13px Nunito';
+        ctx.fillText(
+            `${m}:${(s % 60).toString().padStart(2, '0')}`,
+            x,
+            y + 38
+        );
+    }
+
+    ctx.restore();
 }
 
-ctx.restore();}
     // Добавьте этот метод в класс ZumaGame
 updateEffects(delta) {
     // Обновление частиц
@@ -397,19 +405,25 @@ updateEffects(delta) {
     }
     
     loseLife() {
-        // ФИКС: не позволяем жизням уходить в минус
-        if (this.lives > 0) {
-            this.lives--;
-        }
-        
-        const endPoint = this.getPathPoint(0.85);
-        this.createExplosion(endPoint.x, endPoint.y, '#FF6B6B', 25);
-        
-        if (this.lives <= 0) {
-            this.gameOver = true;
-            this.state = GAME_STATE.LOSE;
-        }
+    if (this.lives <= 0) return;
+
+    this.lives--;
+    this.lastLifeRestore = Date.now();
+
+    const p = this.getPathPoint(0.85);
+    this.createExplosion(p.x, p.y, '#FF8A80', 30);
+
+    if (this.lives <= 0) {
+        this.state = GAME_STATE.LOSE;
+        this.gameOver = true;
+    } else {
+        // мягкий рестарт цепочки
+        setTimeout(() => {
+            this.createChain();
+        }, 600);
     }
+}
+
     
     // Остальные методы остаются такими же, но с улучшенной графикой...
     // Здесь должны быть все остальные методы из предыдущей версии,
@@ -794,40 +808,47 @@ drawNextBall() {
 }
 
 drawAim() {
-    if (this.gameOver || this.isPaused) return;
-    
+    if (this.gameOver || this.isPaused || this.state !== GAME_STATE.PLAY) return;
+
     const angle = this.frog.angle * Math.PI / 180;
-    let x = this.frog.x;
-    let y = this.frog.y;
-    
-    // Линия прицела
-    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
-    this.ctx.lineWidth = 1;
-    this.ctx.setLineDash([5, 3]);
+
+    const startX = this.frog.x;
+    const startY = this.frog.y;
+
+    // 👉 максимальная длина — до начала спирали
+    const firstPoint = this.chain.path[0];
+    const dx = firstPoint.x - startX;
+    const dy = firstPoint.y - startY;
+    const maxLength = Math.sqrt(dx * dx + dy * dy) - 10;
+
+    this.ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+    this.ctx.lineWidth = 2;
+    this.ctx.setLineDash([6, 4]);
+
     this.ctx.beginPath();
-    this.ctx.moveTo(x, y);
-    
-    for (let i = 1; i <= 20; i++) {
+    this.ctx.moveTo(startX, startY);
+
+    const steps = Math.floor(maxLength / 20);
+    let x = startX;
+    let y = startY;
+
+    for (let i = 0; i < steps; i++) {
         x += Math.cos(angle) * 20;
         y += Math.sin(angle) * 20;
         this.ctx.lineTo(x, y);
     }
+
     this.ctx.stroke();
     this.ctx.setLineDash([]);
-    
-    // Круг прицела на конце
-    this.ctx.strokeStyle = '#FF9800';
-    this.ctx.lineWidth = 2;
+
+    // кружок на конце
+    this.ctx.strokeStyle = '#FFB74D';
+    this.ctx.lineWidth = 3;
     this.ctx.beginPath();
-    this.ctx.arc(x, y, 15, 0, Math.PI * 2);
+    this.ctx.arc(x, y, 14, 0, Math.PI * 2);
     this.ctx.stroke();
-    
-    // Точка в центре
-    this.ctx.fillStyle = '#FF9800';
-    this.ctx.beginPath();
-    this.ctx.arc(x, y, 5, 0, Math.PI * 2);
-    this.ctx.fill();
 }
+
     drawFrog() {
         const frog = this.frog;
         
@@ -981,6 +1002,27 @@ drawAim() {
         this.ctx.beginPath();
         this.ctx.arc(15, 0, 4, 0, Math.PI * 2);
         this.ctx.fill();
+
+        // 🎯 СЛЕДУЮЩИЙ ШАР ВО РТУ
+if (this.frog.nextBall) {
+    const mouthX = 58;
+    const mouthY = 0;
+
+    // тень
+    this.ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    this.ctx.beginPath();
+    this.ctx.arc(mouthX + 3, mouthY + 3, 11, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    // шар
+    this.drawShinyBall(
+        mouthX,
+        mouthY,
+        11,
+        this.frog.nextBall
+    );
+}
+
     }
     
     drawPath() {
@@ -1202,8 +1244,6 @@ drawAim() {
     // Эффекты
     this.drawEffects();
 
-    // Следующий шар (яркий блок)
-    this.drawNextBall();
 
     // Прицел
     this.drawAim();
