@@ -1,149 +1,74 @@
-// game-ui.js — версия под state-машину
+// game-ui.js — UI + input + state bridge
 
 const LIFE_RESTORE_TIME = 10 * 60 * 1000;
 const MAX_LIVES = 3;
 
-let game = null;
+let game;
+const canvas = document.getElementById('gameCanvas');
 
 /* =========================
    LIVES STORAGE
 ========================= */
 
-function loadLives() {
-    let data = JSON.parse(localStorage.getItem('zumaLives'));
-
-    if (!data) {
-        data = {
-            lives: MAX_LIVES,
-            lastLost: Date.now()
-        };
-    }
-
+function loadLives(){
+    let d = JSON.parse(localStorage.getItem('zumaLives'));
+    if(!d) d = { lives:MAX_LIVES,lastLost:Date.now() };
     const now = Date.now();
-    const restored = Math.floor((now - data.lastLost) / LIFE_RESTORE_TIME);
-
-    if (restored > 0) {
-        data.lives = Math.min(MAX_LIVES, data.lives + restored);
-        data.lastLost = now;
+    const restored = Math.floor((now-d.lastLost)/LIFE_RESTORE_TIME);
+    if(restored>0){
+        d.lives=Math.min(MAX_LIVES,d.lives+restored);
+        d.lastLost=now;
     }
-
-    localStorage.setItem('zumaLives', JSON.stringify(data));
-    return data.lives;
+    localStorage.setItem('zumaLives',JSON.stringify(d));
+    return d.lives;
 }
 
-function saveLives(lives) {
-    localStorage.setItem(
-        'zumaLives',
-        JSON.stringify({
-            lives,
-            lastLost: Date.now()
-        })
-    );
+function saveLives(lives){
+    localStorage.setItem('zumaLives',JSON.stringify({
+        lives,
+        lastLost:Date.now()
+    }));
 }
 
 /* =========================
-   GAME START
+   INPUT
 ========================= */
 
-document.getElementById('startButton').onclick = () => {
-    document.getElementById('startScreen').style.display = 'none';
-    document.getElementById('gameContainer').style.display = 'block';
-
-    const music = document.getElementById('bgMusic');
-    if (music) {
-        music.volume = 0.25;
-        music.play().catch(() => {});
-    }
-
-    game = new ZumaGame('gameCanvas');
-    game.lives = loadLives();
-    game.init();
-};
-
-/* =========================
-   INPUT → ENGINE
-========================= */
-
-const canvas = document.getElementById('gameCanvas');
-
-canvas.addEventListener('click', () => {
-    if (!game) return;
-
-    game.handleClick();
-
-    // если проиграли — сохраняем жизни
-    if (game.state === 'lose') {
-        saveLives(game.lives);
-    }
-});
-
-canvas.addEventListener('mousemove', (e) => {
-    if (!game || game.state !== 'PLAY') return;
-
-    const rect = canvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
-
-    const dx = mx - game.frog.x;
-    const dy = my - game.frog.y;
-
-    game.frog.angle = Math.atan2(dy, dx) * 180 / Math.PI;
-    game.frog.angle = Math.max(-160, Math.min(160, game.frog.angle));
-});
-
-/* =========================
-   PAUSE (опционально)
-========================= */
-
-document.getElementById('pauseButton')?.addEventListener('click', () => {
-    if (game) game.isPaused = !game.isPaused;
-});
-
-function updateFrogAim(clientX, clientY) {
-    if (!game || game.state !== 'PLAY') return;
-
-    const rect = canvas.getBoundingClientRect();
-    const x = (clientX - rect.left) * (canvas.width / rect.width);
-    const y = (clientY - rect.top) * (canvas.height / rect.height);
-
-    const dx = x - game.frog.x;
-    const dy = y - game.frog.y;
-
-    game.frog.angle = Math.atan2(dy, dx) * 180 / Math.PI;
-    game.frog.angle = Math.max(-170, Math.min(170, game.frog.angle));
+function aim(x,y){
+    if(!game||game.state!=='PLAY')return;
+    const r=canvas.getBoundingClientRect();
+    const mx=(x-r.left)*(canvas.width/r.width);
+    const my=(y-r.top)*(canvas.height/r.height);
+    const dx=mx-game.frog.x;
+    const dy=my-game.frog.y;
+    game.frog.angle=Math.atan2(dy,dx);
 }
 
-// мышь
-canvas.addEventListener('mousemove', e => {
-    updateFrogAim(e.clientX, e.clientY);
+canvas.addEventListener('mousedown',e=>aim(e.clientX,e.clientY));
+canvas.addEventListener('mousemove',e=>aim(e.clientX,e.clientY));
+canvas.addEventListener('mouseup',()=>{
+    if(game&&game.state==='PLAY')game.shoot();
 });
 
-// палец
-canvas.addEventListener('touchmove', e => {
+canvas.addEventListener('touchstart',e=>{
+    const t=e.touches[0];
+    aim(t.clientX,t.clientY);
+},{passive:false});
+
+canvas.addEventListener('touchmove',e=>{
     e.preventDefault();
-    const t = e.touches[0];
-    updateFrogAim(t.clientX, t.clientY);
-}, { passive: false });
-let isDragging = false;
+    const t=e.touches[0];
+    aim(t.clientX,t.clientY);
+},{passive:false});
 
-canvas.addEventListener('touchstart', () => {
-    isDragging = false;
+canvas.addEventListener('touchend',()=>{
+    if(game&&game.state==='PLAY')game.shoot();
 });
 
-canvas.addEventListener('touchmove', e => {
-    e.preventDefault();
-    isDragging = true;
+/* =========================
+   START
+========================= */
 
-    const t = e.touches[0];
-    updateFrogAim(t.clientX, t.clientY);
-}, { passive: false });
-
-canvas.addEventListener('touchend', () => {
-    if (game && game.state === 'PLAY') {
-        game.shoot();
-    }
-});
-
-game = new ZumaGame('gameCanvas');
+game = new ZumaGame(canvas);
 game.lives = loadLives();
-game.startGame();
+game.start();
