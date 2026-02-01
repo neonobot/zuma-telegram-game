@@ -329,9 +329,10 @@ updateEffects(delta) {
     }
     
     init() {
-        console.log('Starting game...');
-        this.Loop();
-    }
+    console.log('Starting game...');
+    this.startGameLoop();
+}
+
     
     createChain() {
         this.chain.balls = [];
