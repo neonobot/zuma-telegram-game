@@ -21,6 +21,9 @@ const ART = {
     shadowColor: 'rgba(0, 40, 30, 0.25)'
 };
 
+const WIN_CONDITION_LAST_BUG = true;
+const LOSE_POSITION = 0.95;
+
 const GAME_STATE = {
     MENU: 'MENU',
     MAP: 'MAP',
@@ -427,27 +430,16 @@ updateEffects(delta) {
             ball.wobble += ball.wobbleSpeed * delta;
             
             // Проверка конца пути
-            if (ball.position >= 0.85) {
-                this.loseLife();
-                this.chain.balls.splice(i, 1);
-                i--;
+            if (ball.position >= LOSE_POSITION) {
+                this.triggerLose();
+                return;
             }
+
         }
-        // 🌪 ПРОИГРЫШ ПРИ ДОСТИЖЕНИИ ВОДОВОРОТА
-        const head = this.chain.balls[0];
-        if (head) {
-            const p = this.getPathPoint(head.position);
-            const dx = p.x - this.whirlpool.x;
-            const dy = p.y - this.whirlpool.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
 
-            if (dist < this.whirlpool.radius * 0.75) {
-                this.loseLife();
-                this.chain.balls = [];
-    }
-}
 
     }
+    
     
     loseLife() {
     if (this.lives <= 0) return;
@@ -475,6 +467,24 @@ updateEffects(delta) {
         }, 600);
     }
 }
+    triggerLose() {
+    if (this.gameOver) return;
+
+    this.lives--;
+    this.lastLifeRestore = Date.now();
+
+    localStorage.setItem(
+        'zumaLives',
+        JSON.stringify({
+            lives: this.lives,
+            lastLost: Date.now()
+        })
+    );
+
+    this.state = GAME_STATE.LOSE;
+    this.gameOver = true;
+}
+
 
 
     
@@ -645,9 +655,10 @@ removeMatches(matches) {
     
     // Проверяем конец уровня
     if (this.chain.balls.length === 0) {
-        this.state = GAME_STATE.WIN;
-        this.levelUp();
-    }
+    this.state = GAME_STATE.WIN;
+    this.levelUp();
+}
+
 }
 
 levelUp() {
@@ -1117,6 +1128,15 @@ if (this.frog.nextBall) {
             this.ctx.lineTo(this.chain.path[i].x, this.chain.path[i].y);
         }
         this.ctx.stroke();
+
+        const losePoint = this.getPathPoint(LOSE_POSITION);
+
+        this.ctx.strokeStyle = 'rgba(255,80,80,0.8)';
+        this.ctx.lineWidth = 4;
+        this.ctx.beginPath();
+        this.ctx.arc(losePoint.x, losePoint.y, 26, 0, Math.PI * 2);
+        this.ctx.stroke();
+
         
         // Берега ручейка
         this.ctx.strokeStyle = '#558B2F';
