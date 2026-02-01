@@ -4,6 +4,8 @@ constructor(canvas){
     this.ctx=canvas.getContext('2d');
     this.w=canvas.width;
     this.h=canvas.height;
+    
+    this.whirlTime = 0;
 
     this.state='START'; // START | PLAY | WIN | LOSE
     this.level=1;
@@ -63,6 +65,8 @@ shoot(){
 }
 
 update(){
+    this.whirlTime += 0.02;
+
     if(this.state!=='PLAY')return;
 
     this.chain.forEach(b=>b.pos+=0.0008);
@@ -298,24 +302,53 @@ drawBall(x,y,c){
     ctx.fill();
 }
 drawWhirlpool(){
-    const ctx=this.ctx;
-    const cx=this.w/2;
-    const cy=this.h/2;
-    const maxR=60;
+    const ctx = this.ctx;
+    const cx = this.w / 2;
+    const cy = this.h / 2;
+    const baseR = 70;
 
     ctx.save();
-    ctx.translate(cx,cy);
+    ctx.translate(cx, cy);
 
-    for(let i=0;i<20;i++){
-        ctx.strokeStyle=`rgba(80,160,180,${0.04+i*0.02})`;
-        ctx.lineWidth=2;
+    // мягкое вращение
+    ctx.rotate(this.whirlTime * 0.5);
+
+    for (let i = 0; i < 22; i++) {
+        const t = i / 22;
+        const r = baseR * (1 - t);
+        const a = this.whirlTime + t * 4;
+
+        ctx.strokeStyle = `rgba(90,170,190,${0.05 + t * 0.25})`;
+        ctx.lineWidth = 2.5;
+
         ctx.beginPath();
-        ctx.arc(0,0,maxR-i*2,i*0.3,i*0.3+Math.PI);
+        ctx.arc(
+            Math.cos(a) * t * 14,
+            Math.sin(a) * t * 14,
+            r,
+            a,
+            a + Math.PI * 1.3
+        );
         ctx.stroke();
     }
 
+    // центр — тёмная точка
+    ctx.fillStyle = 'rgba(40,90,110,0.6)';
+    ctx.beginPath();
+    ctx.arc(0, 0, 10, 0, Math.PI * 2);
+    ctx.fill();
+
     ctx.restore();
+    
+    const pulse = 0.5 + Math.sin(this.whirlTime * 3) * 0.15;
+    ctx.strokeStyle = 'rgba(180,240,255,0.25)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(0, 0, baseR * pulse, 0, Math.PI * 2);
+    ctx.stroke();
+
 }
+
 drawPath(){
     const ctx=this.ctx;
     ctx.strokeStyle=this.colors.water;
