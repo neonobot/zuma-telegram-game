@@ -8,6 +8,9 @@ constructor(canvas){
     this.level=1;
     this.score=0;
 
+    this.uiButtons = [];
+
+
     this.frog={x:this.w/2,y:this.h/2,angle:0,next:'green'};
     this.chain=[];
     this.projectiles=[];
@@ -83,27 +86,51 @@ drawStart(){
     });
 }
 
-drawButton(x,y,text,cb){
-    const w=200,h=60;
-    this.ctx.fillStyle='#6fe3b0';
-    this.ctx.beginPath();
-    this.ctx.roundRect(x-w/2,y-h/2,w,h,30);
-    this.ctx.fill();
+drawUIButton(x, y, w, h, text, onClick) {
+    const ctx = this.ctx;
 
-    this.ctx.fillStyle='#fff';
-    this.ctx.font='900 26px Nunito';
-    this.ctx.textAlign='center';
-    this.ctx.fillText(text,x,y+9);
+    // тень
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.beginPath();
+    ctx.roundRect(x - w/2, y - h/2 + 4, w, h, h/2);
+    ctx.fill();
 
-    this.ctx.canvas.onclick=e=>{
-        const r=this.ctx.canvas.getBoundingClientRect();
-        const mx=(e.clientX-r.left)*(this.w/r.width);
-        const my=(e.clientY-r.top)*(this.h/r.height);
-        if(mx>x-w/2&&mx<x+w/2&&my>y-h/2&&my<y+h/2)cb();
-    };
+    // тело кнопки
+    const grad = ctx.createLinearGradient(0, y - h/2, 0, y + h/2);
+    grad.addColorStop(0, '#8EE7C4');
+    grad.addColorStop(1, '#4FBF9C');
+
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.roundRect(x - w/2, y - h/2, w, h, h/2);
+    ctx.fill();
+
+    // блик
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.beginPath();
+    ctx.roundRect(x - w/2 + 6, y - h/2 + 6, w - 12, h/2 - 6, h/2);
+    ctx.fill();
+
+    // текст
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = '900 26px Nunito';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0,0,0,0.25)';
+    ctx.shadowBlur = 6;
+    ctx.fillText(text, x, y);
+
+    ctx.shadowBlur = 0;
+
+    // кликабельность
+    this.uiButtons.push({
+        x, y, w, h, onClick
+    });
 }
 
+
 draw(){
+    this.uiButtons.length = 0;
     this.ctx.clearRect(0,0,this.w,this.h);
 
     if(this.state==='START')return this.drawStart();
