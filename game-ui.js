@@ -64,6 +64,26 @@ canvas.addEventListener('touchmove',e=>{
 canvas.addEventListener('touchend',()=>{
     if(game&&game.state==='PLAY')game.shoot();
 });
+canvas.addEventListener('click', e => {
+    if (!game) return;
+
+    const r = canvas.getBoundingClientRect();
+    const mx = (e.clientX - r.left) * (canvas.width / r.width);
+    const my = (e.clientY - r.top) * (canvas.height / r.height);
+
+    for (const b of game.uiButtons) {
+        if (
+            mx > b.x - b.w/2 &&
+            mx < b.x + b.w/2 &&
+            my > b.y - b.h/2 &&
+            my < b.y + b.h/2
+        ) {
+            b.onClick();
+            return;
+        }
+    }
+});
+
 
 /* =========================
    START
