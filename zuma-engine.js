@@ -49,7 +49,33 @@ class ZumaGame {
 
         this.state = GAME_STATE.PLAY;
         
-        
+        this.tutorialSteps = [
+    {
+        text: 'Проведи пальцем,\nчтобы прицелиться',
+        shown: false,
+        condition: () => this.frog.angle !== -90
+    },
+    {
+        text: 'Отпусти — шар полетит',
+        shown: false,
+        condition: () => this.projectiles.length > 0
+    },
+    {
+        text: 'Собери 3 одинаковых\nшара подряд',
+        shown: false,
+        condition: () => this.score > 0
+    },
+    {
+        text: 'Жучок — последний!\nУбери его, чтобы победить 🐞',
+        shown: false,
+        condition: () =>
+            this.chain.balls.length === 1 &&
+            this.chain.balls[0].type === 'bug'
+    }
+];
+
+this.currentTutorialStep = 0;
+
         // Пастельные цвета шаров
         this.colors = [
             '#FFD1DC', // Розовый
@@ -79,6 +105,12 @@ class ZumaGame {
         this.lastTime = 0;
         this.deltaTime = 0;
         this.gameLoopId = null;
+        this.isTutorial = this.level === 1;
+
+        this.chain.speed = this.isTutorial
+            ? 0.12   // 🔽 медленно
+            : 0.25 + (this.level * 0.015);
+
 
         
         // Лягушка - теперь в ЦЕНТРЕ!
@@ -289,7 +321,7 @@ updateEffects(delta) {
     
     init() {
         console.log('Starting game...');
-        this.startGameLoop();
+        this.Loop();
     }
     
     createChain() {
@@ -725,6 +757,15 @@ drawBug(x, y, r) {
     this.ctx.arc(x + 6, y + 4, 3, 0, Math.PI * 2);
     this.ctx.fillStyle = '#000';
     this.ctx.fill();
+    
+    if (this.isTutorial) {
+        this.ctx.strokeStyle = '#FFD54F';
+        this.ctx.lineWidth = 4;
+        this.ctx.beginPath();
+        this.ctx.arc(x, y, r + 4, 0, Math.PI * 2);
+        this.ctx.stroke();
+}
+
 }    
 drawShinyBall(x, y, r, color) {
     const ctx = this.ctx;
@@ -1198,6 +1239,31 @@ if (this.frog.nextBall) {
     ctx.arc(0, 0, radius * 0.2, 0, Math.PI * 2);
     ctx.fill();
 
+    const pulse =
+        this.isTutorial
+            ? Math.sin(Date.now() * 0.004) * 6
+            : 0;
+
+    ctx.scale(
+        1 + pulse / 100,
+        1 + pulse / 100
+    );
+
+    if (this.isTutorial) {
+        ctx.restore();
+        ctx.fillStyle = '#FF7043';
+        ctx.font = 'bold 18px Nunito';
+        ctx.textAlign = 'center';
+        ctx.fillText(
+            'СЮДА НЕЛЬЗЯ ❌',
+            this.whirlpool.x,
+            this.whirlpool.y + this.whirlpool.radius + 26
+        );
+        ctx.save();
+}
+
+
+
     ctx.restore();
 }
 
@@ -1259,6 +1325,7 @@ if (this.frog.nextBall) {
     shoot() {
         if (!this.frog.nextBall || this.gameOver || this.isPaused) return;
         
+        const speed = this.isTutorial ? 6 : 10;
         const angle = this.frog.angle * Math.PI / 180;
         const speed = 10;
         
@@ -1337,17 +1404,74 @@ if (this.frog.nextBall) {
 
     // Прицел
     this.drawAim();
+        
+    if (this.isTutorial) {
+        this.drawTutorialHint();
+    }
+
 }
+    drawTutorialHint() {
+    const step = this.tutorialSteps[this.currentTutorialStep];
+    if (!step) return;
+
+    if (step.condition()) {
+        step.shown = true;
+        this.currentTutorialStep++;
+        return;
+    }
+
+    const ctx = this.ctx;
+    ctx.save();
+
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.beginPath();
+    ctx.roundRect(
+        this.width / 2 - 220,
+        this.height - 150,
+        440,
+        90,
+        20
+    );
+    ctx.fill();
+
+    ctx.fillStyle = '#2E7D32';
+    ctx.font = 'bold 22px Nunito, Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    const lines = step.text.split('\n');
+    lines.forEach((l, i) => {
+        ctx.fillText(
+            l,
+            this.width / 2,
+            this.height - 120 + i * 26
+        );
+    });
+
+    ctx.restore();
+}
+
 
 
     drawWinScreen() {
     this.ctx.fillStyle = 'rgba(255,255,255,0.85)';
     this.ctx.fillRect(0, 0, this.width, this.height);
+    if (this.isTutorial) {
+    this.ctx.fillText(
+        'Отлично! Ты готов 🐸✨',
+        this.width / 2,
+        this.height / 2 + 70
+    );
+}
+
 
     this.ctx.fillStyle = '#388E3C';
     this.ctx.font = 'bold 52px Nunito, Arial';
     this.ctx.textAlign = 'center';
     this.ctx.fillText('ПОБЕДА 🌸', this.width / 2, this.height / 2 - 40);
+    this.isTutorial = false;
+
 
     this.ctx.font = '26px Nunito, Arial';
     this.ctx.fillText('Нажмите для следующего уровня', this.width / 2, this.height / 2 + 30);
