@@ -85,6 +85,12 @@ this.currentTutorialStep = 0;
             '#FFF8E1', // Ванильный
             '#B3E0FF'  // Голубой
         ];
+        this.assets = {};
+        this.loadAssets().then(() => {
+        console.log('All assets loaded!');
+        this.init(); // запускаем игру после загрузки
+    });
+
         
         // Инициализация игры
         this.resetGame();
@@ -166,6 +172,39 @@ this.currentTutorialStep = 0;
         
         console.log('Game reset');
     }
+    loadAssets() {
+    return new Promise((resolve) => {
+        const ballsSprite = new Image();
+        ballsSprite.src = 'assets/images/balls.png';
+        ballsSprite.onload = () => {
+            this.assets.ballsSprite = ballsSprite;
+            console.log('Balls sprite loaded');
+            resolve();
+        };
+    });
+}
+    drawBallFromSprite(x, y, radius, colorIndex) {
+    const ctx = this.ctx;
+    const sprite = this.assets.ballsSprite;
+    if (!sprite) return;
+
+    const SPRITE_SIZE = 96; // размер одного шара в спрайтшите
+    const scale = (radius * 2) / SPRITE_SIZE;
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(scale, scale);
+    ctx.drawImage(
+        sprite,
+        colorIndex * SPRITE_SIZE, 0, // фрейм в спрайтшите
+        SPRITE_SIZE, SPRITE_SIZE,    // ширина и высота фрейма
+        -SPRITE_SIZE / 2, -SPRITE_SIZE / 2,
+        SPRITE_SIZE, SPRITE_SIZE
+    );
+    ctx.restore();
+}
+
+
     
     // Генерация КРУГЛОЙ спирали в виде ручейка
     generateRoundSpiralPath() {
@@ -731,20 +770,18 @@ drawChain() {
 
         const wobbleX = Math.sin(ball.wobble) * 2;
         const wobbleY = Math.cos(ball.wobble) * 2;
-
         const x = point.x + wobbleX;
         const y = point.y + wobbleY;
 
-        // 🐞 ЕСЛИ ЭТО ЖУЧОК — РИСУЕМ ЕГО
         if (ball.type === 'bug') {
             this.drawBug(x, y, ball.radius);
-        } 
-        // ⚪ ОБЫЧНЫЙ ШАР
-        else {
-            this.drawShinyBall(x, y, ball.radius, ball.color);
+        } else {
+            const colorIndex = this.colors.indexOf(ball.color);
+            this.drawBallFromSprite(x, y, ball.radius, colorIndex);
         }
     }
 }
+
 
 drawBug(x, y, r) {
     // Тело
@@ -812,35 +849,20 @@ drawProjectiles() {
         // След
         for (let i = 0; i < proj.trail.length; i++) {
             const point = proj.trail[i];
-            const alpha = i / proj.trail.length * 0.3;
-            
-            // ФИКС: правильное создание цвета с альфа-каналом
-            const color = proj.color;
-            let rgbaColor;
-            
-            if (color.startsWith('#')) {
-                // HEX в RGBA
-                const r = parseInt(color.slice(1, 3), 16);
-                const g = parseInt(color.slice(3, 5), 16);
-                const b = parseInt(color.slice(5, 7), 16);
-                rgbaColor = `rgba(${r}, ${g}, ${b}, ${alpha})`;
-            } else if (color.startsWith('rgb')) {
-                // RGB в RGBA
-                rgbaColor = color.replace(')', `, ${alpha})`).replace('rgb', 'rgba');
-            } else {
-                rgbaColor = `rgba(255, 255, 255, ${alpha})`; // fallback
-            }
-            
-            this.ctx.fillStyle = rgbaColor;
-            this.ctx.beginPath();
-            this.ctx.arc(point.x, point.y, proj.radius * 0.7, 0, Math.PI * 2);
-            this.ctx.fill();
+            const alpha = (i / proj.trail.length) * 0.3;
+            this.ctx.globalAlpha = alpha;
+
+            const colorIndex = this.colors.indexOf(proj.color);
+            this.drawBallFromSprite(point.x, point.y, proj.radius * 0.7, colorIndex);
         }
-        
+
         // Основной шар
-        this.drawShinyBall(proj.x, proj.y, proj.radius, proj.color);
+        this.ctx.globalAlpha = 1;
+        const colorIndex = this.colors.indexOf(proj.color);
+        this.drawBallFromSprite(proj.x, proj.y, proj.radius, colorIndex);
     }
 }
+
 
 drawEffects() {
     // Частицы
@@ -897,8 +919,6 @@ drawNextBall() {
 
     const x = this.width - 70;
     const y = 60;
-
-    // Пульсация
     const pulse = Math.sin(Date.now() * 0.004) * 4;
 
     // Фон с градиентом
@@ -921,19 +941,15 @@ drawNextBall() {
 
     // Текст
     this.ctx.fillStyle = '#6D4C41';
-    this.ctx.font = 'bold 14px Nunito, Arial';
+    this.ctx.font = 'bold 14px Nunito, Arial, sans-serif';
     this.ctx.textAlign = 'center';
     this.ctx.fillText('ДАЛЕЕ', x, y - 28);
 
     // Шар
-    this.drawShinyBall(x, y + 8, 20 + pulse * 0.3, this.frog.nextBall);
-
-    // Блик
-    this.ctx.fillStyle = 'rgba(255,255,255,0.6)';
-    this.ctx.beginPath();
-    this.ctx.arc(x - 10, y - 2, 6, 0, Math.PI * 2);
-    this.ctx.fill();
+    const colorIndex = this.colors.indexOf(this.frog.nextBall);
+    this.drawBallFromSprite(x, y + 8, 20 + pulse * 0.3, colorIndex);
 }
+
 
 drawAim() {
     if (this.gameOver || this.isPaused || this.state !== GAME_STATE.PLAY) return;
