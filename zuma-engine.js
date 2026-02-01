@@ -76,8 +76,6 @@ class ZumaGame {
         this.lastTime = 0;
         this.deltaTime = 0;
         this.gameLoopId = null;
-        this.chain.isAssembling = true;
-        this.chain.assembleProgress = -0.25; // за стартом
 
         
         // Лягушка - теперь в ЦЕНТРЕ!
@@ -101,10 +99,15 @@ class ZumaGame {
         // Цепочка шаров - большая круглая спираль
         this.chain = {
             balls: [],
-            path: this.generateRoundSpiralPath(), // Новая круглая спираль
-            speed: 0.25 + (this.level * 0.015), // Еще медленнее
-            headPosition: 0
+            path: this.generateRoundSpiralPath(),
+            speed: 0.25 + (this.level * 0.015),
+            headPosition: 0,
+
+            // 🧲 фаза сборки
+            isAssembling: true,
+            assembleProgress: -0.25
         };
+
         
         // Проектили
         this.projectiles = [];
