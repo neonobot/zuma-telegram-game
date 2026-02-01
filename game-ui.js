@@ -6,6 +6,7 @@ const MAX_LIVES = 3;
 let game;
 const canvas = document.getElementById('gameCanvas');
 
+
 /* =========================
    LIVES STORAGE
 ========================= */
@@ -34,21 +35,8 @@ function saveLives(lives){
    INPUT
 ========================= */
 
-function aim(x,y){
-    if(!game||game.state!=='PLAY')return;
-    const r=canvas.getBoundingClientRect();
-    const mx=(x-r.left)*(canvas.width/r.width);
-    const my=(y-r.top)*(canvas.height/r.height);
-    const dx=mx-game.frog.x;
-    const dy=my-game.frog.y;
-    game.frog.angle=Math.atan2(dy,dx);
-}
 
-canvas.addEventListener('mousedown',e=>aim(e.clientX,e.clientY));
-canvas.addEventListener('mousemove',e=>aim(e.clientX,e.clientY));
-canvas.addEventListener('mouseup',()=>{
-    if(game&&game.state==='PLAY')game.shoot();
-});
+
 
 canvas.addEventListener('touchstart',e=>{
     const t=e.touches[0];
@@ -125,23 +113,34 @@ canvas.addEventListener('click', e => {
    AIMING (mouse + touch)
 ============================= */
 
-function updateFrogAim(clientX, clientY){
-    if (game.state !== 'PLAY') return;
+function updateFrogAim(clientX, clientY) {
+    if (!game || game.state !== 'PLAY') return;
 
     const rect = canvas.getBoundingClientRect();
     const x = (clientX - rect.left) * (canvas.width / rect.width);
     const y = (clientY - rect.top) * (canvas.height / rect.height);
 
-    game.frog.angle = Math.atan2(
-        y - game.frog.y,
-        x - game.frog.x
-    );
+    const dx = x - game.frog.x;
+    const dy = y - game.frog.y;
+
+    game.frog.angle = Math.atan2(dy, dx);
 }
+
+
 
 // мышь
 canvas.addEventListener('mousemove', e => {
     updateFrogAim(e.clientX, e.clientY);
 });
+
+canvas.addEventListener('mouseup', () => {
+    if (game && game.state === 'PLAY') {
+        game.shoot();
+    }
+});
+
+
+
 
 // палец
 canvas.addEventListener('touchmove', e => {
