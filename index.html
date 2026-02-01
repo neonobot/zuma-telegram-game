@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Zuma Frog</title>
-    <link rel="icon" href="favicon.ico">
 
+    <link rel="icon" href="favicon.ico">
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
 
     <style>
@@ -34,18 +34,20 @@
             box-shadow: 0 20px 50px rgba(0,0,0,.25);
         }
 
+        /* START SCREEN */
+
         #startScreen {
             background: linear-gradient(135deg, #a5d6a7, #66bb6a);
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: space-between;
-            padding: 40px;
+            justify-content: center;
+            gap: 40px;
         }
 
         h1 {
             color: #fff59d;
-            font-size: 48px;
+            font-size: 52px;
             text-shadow: 2px 2px 6px rgba(0,0,0,.3);
         }
 
@@ -61,6 +63,8 @@
             box-shadow: 0 10px 20px rgba(0,0,0,.3);
         }
 
+        /* GAME */
+
         #gameContainer {
             display: none;
             position: relative;
@@ -70,106 +74,56 @@
         #gameCanvas {
             width: 100%;
             height: 100%;
+            display: block;
         }
 
-        #ui {
-            position: absolute;
-            top: 15px;
-            left: 15px;
-            background: rgba(56,142,60,.85);
-            color: white;
-            padding: 10px 16px;
-            border-radius: 14px;
-            font-weight: 700;
-        }
+        /* BUTTONS */
 
         .game-buttons {
             position: absolute;
-            bottom: 15px;
-            right: 15px;
+            bottom: 16px;
+            right: 16px;
             display: flex;
             gap: 10px;
+            z-index: 10;
         }
 
         .game-btn {
-            padding: 10px 14px;
+            width: 46px;
+            height: 46px;
             border-radius: 50%;
             border: none;
-            font-size: 20px;
+            font-size: 22px;
             cursor: pointer;
-        }
-
-        /* WIN SCREEN */
-        .overlay-screen {
-            position: fixed;
-            inset: 0;
-            background: rgba(20, 60, 40, 0.85);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 999;
-        }
-
-        .win-card {
-            background: linear-gradient(135deg, #c8e6c9, #a5d6a7);
-            padding: 30px 40px;
-            border-radius: 25px;
-            text-align: center;
-        }
-
-        .win-card h2 {
-            color: #2e7d32;
-            margin-bottom: 10px;
-        }
-
-        .win-card button {
-            margin: 10px;
-            padding: 12px 25px;
-            border-radius: 30px;
-            border: none;
-            font-size: 18px;
-            cursor: pointer;
-            background: #ffb74d;
-            color: white;
-            font-weight: bold;
+            background: rgba(255,255,255,0.85);
+            box-shadow: 0 4px 12px rgba(0,0,0,.25);
         }
     </style>
 </head>
 <body>
 
+<!-- START SCREEN -->
 <div id="startScreen">
     <h1>🐸 ZUMA FROG</h1>
     <button class="start-button" id="startButton">НАЧАТЬ ИГРУ</button>
 </div>
 
+
+<!-- GAME -->
 <div id="gameContainer">
     <canvas id="gameCanvas" width="800" height="600"></canvas>
 
-    <div id="ui">
-        🎯 <span id="score">0</span> |
-        🚀 <span id="level">1</span> |
-        ❤️ <span id="lives">3</span>
-    </div>
-
     <div class="game-buttons">
         <button id="pauseButton" class="game-btn">⏸</button>
-        <button id="menuButton" class="game-btn">🏠</button>
     </div>
 </div>
 
-<div id="winScreen" class="overlay-screen">
-    <div class="win-card">
-        <h2>🐞 Жучок съеден!</h2>
-        <p>Уровень пройден 🎉</p>
-        <button id="nextLevelBtn">➡ Следующий</button>
-        <button id="toMenuBtn">🏠 В меню</button>
-    </div>
-</div>
-
+<!-- MUSIC -->
 <audio id="bgMusic" loop>
-    <source src="assets/music/cozy.mp3" type="audio/mpeg">
+    <source src="https://www.dropbox.com/scl/fi/8irxfrpyexg242w6240dh/cozy.mp3?rlkey=9ahrs2f136gk7jkrxf0wp23ta&st=xpugxaf4&dl=1" type="audio/mpeg">
 </audio>
 
+<!-- SCRIPTS -->
 <script src="zuma-engine.js"></script>
 <script src="game-ui.js"></script>
 

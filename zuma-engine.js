@@ -1,5 +1,36 @@
 // zuma-engine.js - Версия 3.0 с улучшенной графикой
 console.log('Zuma Frog Game Engine loading...');
+const ART = {
+    colors: {
+        water: '#6FB7B1',
+        waterDark: '#4FA19B',
+        streamEdge: '#5A9F99',
+
+        frog: '#5FA77A',
+        frogShadow: '#3E6F58',
+
+        lily: '#6EA96E',
+        lotus: '#F3B6C4',
+
+        whirlpoolCenter: '#3E6F73',
+        whirlpoolEdge: '#7FC6C2',
+
+        bugRed: '#E55A5A'
+    },
+
+    shadowColor: 'rgba(0, 40, 30, 0.25)'
+};
+
+const WIN_CONDITION_LAST_BUG = true;
+const LOSE_POSITION = 0.95;
+
+const GAME_STATE = {
+    MENU: 'MENU',
+    MAP: 'MAP',
+    PLAY: 'PLAY',
+    WIN: 'WIN',
+    LOSE: 'LOSE'
+};
 
 class ZumaGame {
     constructor(canvasId) {
@@ -9,11 +40,42 @@ class ZumaGame {
         if (!this.canvas) {
             throw new Error('Canvas not found!');
         }
-        
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+
         this.ctx = this.canvas.getContext('2d');
         this.width = this.canvas.width;
         this.height = this.canvas.height;
+
+        this.state = GAME_STATE.PLAY;
         
+        this.tutorialSteps = [
+    {
+        text: 'Проведи пальцем,\nчтобы прицелиться',
+        shown: false,
+        condition: () => this.frog.angle !== -90
+    },
+    {
+        text: 'Отпусти — шар полетит',
+        shown: false,
+        condition: () => this.projectiles.length > 0
+    },
+    {
+        text: 'Собери 3 одинаковых\nшара подряд',
+        shown: false,
+        condition: () => this.score > 0
+    },
+    {
+        text: 'Жучок — последний!\nУбери его, чтобы победить 🐞',
+        shown: false,
+        condition: () =>
+            this.chain.balls.length === 1 &&
+            this.chain.balls[0].type === 'bug'
+    }
+];
+
+this.currentTutorialStep = 0;
+
         // Пастельные цвета шаров
         this.colors = [
             '#FFD1DC', // Розовый
@@ -23,6 +85,12 @@ class ZumaGame {
             '#FFF8E1', // Ванильный
             '#B3E0FF'  // Голубой
         ];
+        this.assets = {};
+        this.loadAssets().then(() => {
+        console.log('All assets loaded!');
+        this.init(); // запускаем игру после загрузки
+    });
+
         
         // Инициализация игры
         this.resetGame();
@@ -35,12 +103,30 @@ class ZumaGame {
         // Игровые переменные
         this.score = 0;
         this.level = 1;
-        this.lives = 5;
+        this.lives = 3;
+        this.maxLives = 3;
+        this.lastLifeRestore = Date.now();
         this.isPaused = false;
         this.gameOver = false;
         this.lastTime = 0;
         this.deltaTime = 0;
         this.gameLoopId = null;
+        this.isTutorial = this.level === 1;
+        this.chain = {
+            balls: [],
+            path: this.generateRoundSpiralPath(),
+            speed: this.isTutorial
+                ? 0.12
+                : 0.25 + (this.level * 0.015),
+            headPosition: 0,
+
+            isAssembling: true,
+            assembleProgress: -0.25,
+            freeze: 40
+        };
+
+
+
         
         // Лягушка - теперь в ЦЕНТРЕ!
         this.frog = {
@@ -53,14 +139,25 @@ class ZumaGame {
             mouthOpen: false,
             smile: 0 // Для анимации улыбки
         };
-        
+
+        this.whirlpool = {
+            x: this.width / 2,
+            y: this.height / 2,
+            radius: 42,
+            angle: 0
+        };
         // Цепочка шаров - большая круглая спираль
         this.chain = {
             balls: [],
-            path: this.generateRoundSpiralPath(), // Новая круглая спираль
-            speed: 0.25 + (this.level * 0.015), // Еще медленнее
-            headPosition: 0
+            path: this.generateRoundSpiralPath(),
+            speed: 0.25 + (this.level * 0.015),
+            headPosition: 0,
+
+            // 🧲 фаза сборки
+            isAssembling: true,
+            assembleProgress: -0.25
         };
+
         
         // Проектили
         this.projectiles = [];
@@ -75,29 +172,137 @@ class ZumaGame {
         
         console.log('Game reset');
     }
+    loadAssets() {
+    return new Promise((resolve) => {
+        const ballsSprite = new Image();
+        ballsSprite.src = 'assets/images/balls.png';
+        ballsSprite.onload = () => {
+            this.assets.ballsSprite = ballsSprite;
+            console.log('Balls sprite loaded');
+            resolve();
+        };
+    });
+}
+    drawBallFromSprite(x, y, radius, colorIndex) {
+    const ctx = this.ctx;
+    const sprite = this.assets.ballsSprite;
+    if (!sprite) return;
+
+    const SPRITE_SIZE = 96; // размер одного шара в спрайтшите
+    const scale = (radius * 2) / SPRITE_SIZE;
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(scale, scale);
+    ctx.drawImage(
+        sprite,
+        colorIndex * SPRITE_SIZE, 0, // фрейм в спрайтшите
+        SPRITE_SIZE, SPRITE_SIZE,    // ширина и высота фрейма
+        -SPRITE_SIZE / 2, -SPRITE_SIZE / 2,
+        SPRITE_SIZE, SPRITE_SIZE
+    );
+    ctx.restore();
+}
+
+
     
     // Генерация КРУГЛОЙ спирали в виде ручейка
     generateRoundSpiralPath() {
-        const path = [];
-        const segments = 400; // Больше сегментов для плавности
-        const centerX = this.width / 2;
-        const centerY = this.height / 2;
-        
-        // Большая круглая спираль (3 оборота)
-        for (let i = 0; i <= segments; i++) {
-            const t = (i / segments) * Math.PI * 6; // 3 оборота
-            const spiralFactor = 1 - (i / segments) * 0.2; // Плавное сужение
-            const radius = Math.min(this.width, this.height) * 0.4 * spiralFactor;
-            
-            // Круговая спираль
-            const x = centerX + Math.cos(t) * radius;
-            const y = centerY + Math.sin(t) * radius;
-            
-            path.push({x, y});
-        }
-        
-        return path;
+    const path = [];
+
+    const cx = this.width / 2;
+    const cy = this.height / 2;
+
+    const turns = 3.0;
+    const pointsPerTurn = 160;
+    const total = Math.floor(turns * pointsPerTurn);
+
+    const startR = Math.min(this.width, this.height) * 0.46;
+    const endR   = Math.min(this.width, this.height) * 0.22; // ⬅️ НЕ ДО ЦЕНТРА
+
+    for (let i = 0; i < total; i++) {
+        const t = i / (total - 1);
+
+        const angle = t * turns * Math.PI * 2;
+        const radius = startR - t * (startR - endR);
+
+        path.push({
+            x: cx + Math.cos(angle) * radius,
+            y: cy + Math.sin(angle) * radius
+        });
     }
+
+    return path;
+}
+    resize() {
+    const scale = Math.min(
+        window.innerWidth / 800,
+        window.innerHeight / 600
+    );
+
+    this.canvas.style.width = `${800 * scale}px`;
+    this.canvas.style.height = `${600 * scale}px`;
+}
+
+
+    formatTime(ms) {
+    const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+
+    return `${minutes.toString().padStart(2, '0')}:${seconds
+        .toString()
+        .padStart(2, '0')}`;
+}
+    drawLivesUI() {
+    const ctx = this.ctx;
+    const x = 24;
+    const y = 24;
+
+    ctx.save();
+
+    // мягкая плашка
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.strokeStyle = '#A5D6A7';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(x - 12, y - 12, 160, 56, 18);
+    ctx.fill();
+    ctx.stroke();
+
+    for (let i = 0; i < this.maxLives; i++) {
+        const hx = x + i * 30;
+        const hy = y + 20;
+
+        ctx.globalAlpha = i < this.lives ? 1 : 0.3;
+
+        ctx.font = '22px serif';
+        ctx.fillText('💗', hx, hy);
+    }
+
+    // таймер восстановления
+    if (this.lives < this.maxLives) {
+        const left = Math.max(
+            0,
+            600000 - (Date.now() - this.lastLifeRestore)
+        );
+
+        const s = Math.floor(left / 1000);
+        const m = Math.floor(s / 60);
+
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#4E6E5D';
+        ctx.font = '13px Nunito';
+        ctx.fillText(
+            `${m}:${(s % 60).toString().padStart(2, '0')}`,
+            x,
+            y + 38
+        );
+    }
+
+    ctx.restore();
+}
+
     // Добавьте этот метод в класс ZumaGame
 updateEffects(delta) {
     // Обновление частиц
@@ -163,17 +368,18 @@ updateEffects(delta) {
     }
     
     init() {
-        console.log('Starting game...');
-        this.startGameLoop();
-    }
+    console.log('Starting game...');
+    this.startGameLoop();
+}
+
     
     createChain() {
         this.chain.balls = [];
         const ballCount = 18 + this.level * 2;
-        const spacing = 0.022; // Расстояние между шарами
+        const spacing = 0.028; // Расстояние между шарами
         
         for (let i = 0; i < ballCount; i++) {
-            const position = i * spacing;
+            const position = this.chain.assembleProgress - i * spacing;
             const point = this.getPathPoint(position);
             
             this.chain.balls.push({
@@ -184,9 +390,15 @@ updateEffects(delta) {
                 wobble: Math.random() * Math.PI * 2,
                 wobbleSpeed: 0.02 + Math.random() * 0.02
             });
+            this.chain.headPosition = 0;
+            this.chain.freeze = 40; // кадров
+
         }
         
         this.chain.balls.sort((a, b) => a.position - b.position);
+        if (this.chain.balls.length > 0) {
+    this.chain.balls[this.chain.balls.length - 1].type = 'bug';
+}
         this.chain.headPosition = this.chain.balls[0]?.position || 0;
     }
     
@@ -216,20 +428,27 @@ updateEffects(delta) {
         
         this.gameLoopId = requestAnimationFrame(gameLoop);
     }
-    
+    updateWhirlpool(delta) {
+    this.whirlpool.angle += 0.02 * delta;
+}
     update(delta) {
-        // Обновляем состояние лягушки
-        this.updateFrog(delta);
-        
-        // Движение цепочки
-        this.updateChain(delta);
-        
-        // Обновление снарядов
-        this.updateProjectiles(delta);
-        
-        // Обновление эффектов
-        this.updateEffects(delta);
+    if (this.state !== GAME_STATE.PLAY) return;
+
+    this.updateFrog(delta);
+    this.updateChain(delta);
+    this.updateProjectiles(delta);
+    this.updateEffects(delta);
+
+    // ❤️ восстановление жизни
+    if (
+        this.lives < this.maxLives &&
+        Date.now() - this.lastLifeRestore > 600000
+    ) {
+        this.lives++;
+        this.lastLifeRestore = Date.now();
+        this.updateWhirlpool(delta);
     }
+}
     
     updateFrog(delta) {
         // Анимация улыбки
@@ -247,6 +466,28 @@ updateEffects(delta) {
     }
     
     updateChain(delta) {
+        if (this.chain.isAssembling) {
+            this.chain.assembleProgress += 0.01 * delta;
+
+        for (let i = 0; i < this.chain.balls.length; i++) {
+        const target = this.chain.assembleProgress - i * 0.03;
+        this.chain.balls[i].position += (target - this.chain.balls[i].position) * 0.15;
+    }
+
+    // когда головной шар дошел до старта
+    if (this.chain.assembleProgress >= 0) {
+        this.chain.isAssembling = false;
+        this.chain.headPosition = 0;
+    }
+
+    return; // ⛔ НЕ выполняем обычное движение
+}
+  
+        if (this.chain.freeze > 0) {
+            this.chain.freeze--;
+            return;
+        }
+
         // Движение цепочки
         const speedMultiplier = 0.25;
         this.chain.headPosition += (this.chain.speed / 200) * delta * speedMultiplier;
@@ -258,7 +499,7 @@ updateEffects(delta) {
             if (i === 0) {
                 ball.position = this.chain.headPosition;
             } else {
-                const targetPos = this.chain.balls[i-1].position - 0.02;
+                const targetPos = this.chain.balls[i-1].position - 0.03;
                 const diff = targetPos - ball.position;
                 
                 if (Math.abs(diff) > 0.001) {
@@ -270,27 +511,63 @@ updateEffects(delta) {
             ball.wobble += ball.wobbleSpeed * delta;
             
             // Проверка конца пути
-            if (ball.position >= 0.85) {
-                this.loseLife();
-                this.chain.balls.splice(i, 1);
-                i--;
+            if (ball.position >= LOSE_POSITION) {
+                this.triggerLose();
+                return;
             }
+
         }
+
+
     }
     
+    
     loseLife() {
-        // ФИКС: не позволяем жизням уходить в минус
-        if (this.lives > 0) {
-            this.lives--;
-        }
-        
-        const endPoint = this.getPathPoint(0.85);
-        this.createExplosion(endPoint.x, endPoint.y, '#FF6B6B', 25);
-        
-        if (this.lives <= 0) {
-            this.gameOver = true;
-        }
+    if (this.lives <= 0) return;
+
+    this.lives--;
+    this.lastLifeRestore = Date.now();
+
+    localStorage.setItem(
+        'zumaLives',
+        JSON.stringify({
+            lives: this.lives,
+            lastLost: Date.now()
+        })
+    );
+
+    const p = this.getPathPoint(0.85);
+    this.createExplosion(p.x, p.y, '#FF8A80', 30);
+
+    if (this.lives <= 0) {
+        this.state = GAME_STATE.LOSE;
+        this.gameOver = true;
+    } else {
+        setTimeout(() => {
+            this.createChain();
+        }, 600);
     }
+}
+    triggerLose() {
+    if (this.gameOver) return;
+
+    this.lives--;
+    this.lastLifeRestore = Date.now();
+
+    localStorage.setItem(
+        'zumaLives',
+        JSON.stringify({
+            lives: this.lives,
+            lastLost: Date.now()
+        })
+    );
+
+    this.state = GAME_STATE.LOSE;
+    this.gameOver = true;
+}
+
+
+
     
     // Остальные методы остаются такими же, но с улучшенной графикой...
     // Здесь должны быть все остальные методы из предыдущей версии,
@@ -314,7 +591,16 @@ updateEffects(delta) {
         if (proj.x < -proj.radius || proj.x > this.width + proj.radius ||
             proj.y < -proj.radius || proj.y > this.height + proj.radius ||
             proj.life <= 0) {
-            this.projectiles.splice(i, 1);
+            this.chain.balls.unshift({
+                position: this.chain.balls[0]?.position - 0.03 || 0,
+                color: proj.color,
+                radius: 20,
+                wobble: 0,
+                wobbleSpeed: 0.02
+            });
+
+this.projectiles.splice(i, 1);
+            
             continue;
         }
         
@@ -450,8 +736,10 @@ removeMatches(matches) {
     
     // Проверяем конец уровня
     if (this.chain.balls.length === 0) {
-        this.levelUp();
-    }
+    this.state = GAME_STATE.WIN;
+    this.levelUp();
+}
+
 }
 
 levelUp() {
@@ -479,45 +767,81 @@ drawChain() {
     for (let i = 0; i < this.chain.balls.length; i++) {
         const ball = this.chain.balls[i];
         const point = this.getPathPoint(ball.position);
-        
-        // Добавляем колебание
+
         const wobbleX = Math.sin(ball.wobble) * 2;
         const wobbleY = Math.cos(ball.wobble) * 2;
-        
-        // Рисуем блестящий шар
-        this.drawShinyBall(
-            point.x + wobbleX,
-            point.y + wobbleY,
-            ball.radius,
-            ball.color
-        );
+        const x = point.x + wobbleX;
+        const y = point.y + wobbleY;
+
+        if (ball.type === 'bug') {
+            this.drawBug(x, y, ball.radius);
+        } else {
+            const colorIndex = this.colors.indexOf(ball.color);
+            this.drawBallFromSprite(x, y, ball.radius, colorIndex);
+        }
     }
 }
 
-drawShinyBall(x, y, radius, color) {
-    // Основной цвет
-    this.ctx.fillStyle = color;
+
+drawBug(x, y, r) {
+    // Тело
+    this.ctx.fillStyle = ART.colors.bugRed;
     this.ctx.beginPath();
-    this.ctx.arc(x, y, radius, 0, Math.PI * 2);
+    this.ctx.arc(x, y, r, 0, Math.PI * 2);
     this.ctx.fill();
-    
-    // Блик
-    const gradient = this.ctx.createRadialGradient(
-        x - radius/3, y - radius/3, 1,
-        x - radius/3, y - radius/3, radius/2
-    );
-    gradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
-    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-    
-    this.ctx.fillStyle = gradient;
-    this.ctx.beginPath();
-    this.ctx.arc(x - radius/3, y - radius/3, radius/2, 0, Math.PI * 2);
-    this.ctx.fill();
-    
-    // Контур
-    this.ctx.strokeStyle = this.darkenColor(color, 30);
+
+    // Линия
+    this.ctx.strokeStyle = '#000';
     this.ctx.lineWidth = 2;
+    this.ctx.beginPath();
+    this.ctx.moveTo(x, y - r);
+    this.ctx.lineTo(x, y + r);
     this.ctx.stroke();
+
+    // Точки
+    this.ctx.beginPath();
+    this.ctx.arc(x - 6, y - 4, 3, 0, Math.PI * 2);
+    this.ctx.arc(x + 6, y + 4, 3, 0, Math.PI * 2);
+    this.ctx.fillStyle = '#000';
+    this.ctx.fill();
+    
+    if (this.isTutorial) {
+        this.ctx.strokeStyle = '#FFD54F';
+        this.ctx.lineWidth = 4;
+        this.ctx.beginPath();
+        this.ctx.arc(x, y, r + 4, 0, Math.PI * 2);
+        this.ctx.stroke();
+}
+
+}    
+drawShinyBall(x, y, r, color) {
+    const ctx = this.ctx;
+
+    // Тень
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.beginPath();
+    ctx.arc(x + 3, y + 3, r, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Градиент (объем)
+    const g = ctx.createRadialGradient(
+        x - r * 0.3, y - r * 0.3, r * 0.2,
+        x, y, r
+    );
+    g.addColorStop(0, '#FFFFFF');
+    g.addColorStop(0.3, color);
+    g.addColorStop(1, this.darkenColor(color, 25));
+
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Блик
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.beginPath();
+    ctx.arc(x - r * 0.3, y - r * 0.3, r * 0.25, 0, Math.PI * 2);
+    ctx.fill();
 }
 
 drawProjectiles() {
@@ -525,35 +849,20 @@ drawProjectiles() {
         // След
         for (let i = 0; i < proj.trail.length; i++) {
             const point = proj.trail[i];
-            const alpha = i / proj.trail.length * 0.3;
-            
-            // ФИКС: правильное создание цвета с альфа-каналом
-            const color = proj.color;
-            let rgbaColor;
-            
-            if (color.startsWith('#')) {
-                // HEX в RGBA
-                const r = parseInt(color.slice(1, 3), 16);
-                const g = parseInt(color.slice(3, 5), 16);
-                const b = parseInt(color.slice(5, 7), 16);
-                rgbaColor = `rgba(${r}, ${g}, ${b}, ${alpha})`;
-            } else if (color.startsWith('rgb')) {
-                // RGB в RGBA
-                rgbaColor = color.replace(')', `, ${alpha})`).replace('rgb', 'rgba');
-            } else {
-                rgbaColor = `rgba(255, 255, 255, ${alpha})`; // fallback
-            }
-            
-            this.ctx.fillStyle = rgbaColor;
-            this.ctx.beginPath();
-            this.ctx.arc(point.x, point.y, proj.radius * 0.7, 0, Math.PI * 2);
-            this.ctx.fill();
+            const alpha = (i / proj.trail.length) * 0.3;
+            this.ctx.globalAlpha = alpha;
+
+            const colorIndex = this.colors.indexOf(proj.color);
+            this.drawBallFromSprite(point.x, point.y, proj.radius * 0.7, colorIndex);
         }
-        
+
         // Основной шар
-        this.drawShinyBall(proj.x, proj.y, proj.radius, proj.color);
+        this.ctx.globalAlpha = 1;
+        const colorIndex = this.colors.indexOf(proj.color);
+        this.drawBallFromSprite(proj.x, proj.y, proj.radius, colorIndex);
     }
 }
+
 
 drawEffects() {
     // Частицы
@@ -607,59 +916,83 @@ drawEffects() {
 
 drawNextBall() {
     if (!this.frog.nextBall) return;
-    
-    // Индикатор следующего шара в правом верхнем углу
-    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-    this.ctx.fillRect(this.width - 90, 20, 70, 70);
-    
-    this.ctx.strokeStyle = '#4CAF50';
-    this.ctx.lineWidth = 3;
-    this.ctx.strokeRect(this.width - 90, 20, 70, 70);
-    
-    this.ctx.font = 'bold 16px Nunito, Arial, sans-serif';
-    this.ctx.fillStyle = '#388E3C';
+
+    const x = this.width - 70;
+    const y = 60;
+    const pulse = Math.sin(Date.now() * 0.004) * 4;
+
+    // Фон с градиентом
+    const bgGradient = this.ctx.createRadialGradient(
+        x, y, 10,
+        x, y, 40 + pulse
+    );
+    bgGradient.addColorStop(0, '#FFFDE7');
+    bgGradient.addColorStop(1, '#FFE082');
+
+    this.ctx.fillStyle = bgGradient;
+    this.ctx.beginPath();
+    this.ctx.roundRect(x - 40, y - 40, 80, 80, 20);
+    this.ctx.fill();
+
+    // Золотая рамка
+    this.ctx.strokeStyle = '#FFB300';
+    this.ctx.lineWidth = 4;
+    this.ctx.stroke();
+
+    // Текст
+    this.ctx.fillStyle = '#6D4C41';
+    this.ctx.font = 'bold 14px Nunito, Arial, sans-serif';
     this.ctx.textAlign = 'center';
-    this.ctx.fillText('СЛЕДУЮЩИЙ', this.width - 55, 40);
-    
+    this.ctx.fillText('ДАЛЕЕ', x, y - 28);
+
     // Шар
-    this.drawShinyBall(this.width - 55, 65, 20, this.frog.nextBall);
+    const colorIndex = this.colors.indexOf(this.frog.nextBall);
+    this.drawBallFromSprite(x, y + 8, 20 + pulse * 0.3, colorIndex);
 }
 
+
 drawAim() {
-    if (this.gameOver || this.isPaused) return;
-    
+    if (this.gameOver || this.isPaused || this.state !== GAME_STATE.PLAY) return;
+
     const angle = this.frog.angle * Math.PI / 180;
-    let x = this.frog.x;
-    let y = this.frog.y;
-    
-    // Линия прицела
-    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
-    this.ctx.lineWidth = 1;
-    this.ctx.setLineDash([5, 3]);
+
+    const startX = this.frog.x;
+    const startY = this.frog.y;
+
+    // 👉 максимальная длина — до начала спирали
+    const firstPoint = this.chain.path[0];
+    const dx = firstPoint.x - startX;
+    const dy = firstPoint.y - startY;
+    const maxLength = Math.sqrt(dx * dx + dy * dy) - 10;
+
+    this.ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+    this.ctx.lineWidth = 2;
+    this.ctx.setLineDash([6, 4]);
+
     this.ctx.beginPath();
-    this.ctx.moveTo(x, y);
-    
-    for (let i = 1; i <= 20; i++) {
+    this.ctx.moveTo(startX, startY);
+
+    const steps = Math.floor(maxLength / 20);
+    let x = startX;
+    let y = startY;
+
+    for (let i = 0; i < steps; i++) {
         x += Math.cos(angle) * 20;
         y += Math.sin(angle) * 20;
         this.ctx.lineTo(x, y);
     }
+
     this.ctx.stroke();
     this.ctx.setLineDash([]);
-    
-    // Круг прицела на конце
-    this.ctx.strokeStyle = '#FF9800';
-    this.ctx.lineWidth = 2;
+
+    // кружок на конце
+    this.ctx.strokeStyle = '#FFB74D';
+    this.ctx.lineWidth = 3;
     this.ctx.beginPath();
-    this.ctx.arc(x, y, 15, 0, Math.PI * 2);
+    this.ctx.arc(x, y, 14, 0, Math.PI * 2);
     this.ctx.stroke();
-    
-    // Точка в центре
-    this.ctx.fillStyle = '#FF9800';
-    this.ctx.beginPath();
-    this.ctx.arc(x, y, 5, 0, Math.PI * 2);
-    this.ctx.fill();
 }
+
     drawFrog() {
         const frog = this.frog;
         
@@ -678,32 +1011,51 @@ drawAim() {
     }
     
     drawLilyPad(x, y) {
-        // Большой лист кувшинки
-        this.ctx.fillStyle = '#81C784';
+    // 🌑 Тень под кувшинкой
+    this.ctx.fillStyle = ART.shadowColor;
+    this.ctx.beginPath();
+    this.ctx.ellipse(x, y + 12, 65, 18, 0, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    // 🍃 Основной лист
+    this.ctx.fillStyle = ART.colors.lily;
+    this.ctx.beginPath();
+    this.ctx.ellipse(x, y, 70, 35, 0, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    // 🍃 Светлая часть
+    this.ctx.fillStyle = this.lightenColor(ART.colors.lily, 12);
+    this.ctx.beginPath();
+    this.ctx.ellipse(x, y - 3, 60, 28, 0, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    // 🌿 Прожилки
+    this.ctx.strokeStyle = this.darkenColor(ART.colors.lily, 18);
+    this.ctx.lineWidth = 2;
+    for (let i = 0; i < 7; i++) {
+        const a = i * Math.PI * 2 / 7;
         this.ctx.beginPath();
-        this.ctx.ellipse(x, y, 70, 35, 0, 0, Math.PI * 2);
-        this.ctx.fill();
-        
-        // Детали листа
-        this.ctx.fillStyle = '#A5D6A7';
+        this.ctx.moveTo(x, y);
+        this.ctx.lineTo(
+            x + Math.cos(a) * 60,
+            y + Math.sin(a) * 28
+        );
+        this.ctx.stroke();
+    } // <- ЗАКРЫТ ЦИКЛ ДЛЯ ПРОЖИЛОК
+
+    // 🌸 ЛОТОС
+    this.ctx.fillStyle = ART.colors.lotus;
+    for (let i = 0; i < 5; i++) {
+        const a = i * Math.PI * 2 / 5;
         this.ctx.beginPath();
-        this.ctx.ellipse(x, y, 60, 30, 0, 0, Math.PI * 2);
+        this.ctx.ellipse(
+            x + Math.cos(a) * 18,
+            y + Math.sin(a) * 8 - 8,
+            8, 16, a, 0, Math.PI * 2
+        );
         this.ctx.fill();
-        
-        // Прожилки на листе
-        this.ctx.strokeStyle = '#4CAF50';
-        this.ctx.lineWidth = 2;
-        for (let i = 0; i < 8; i++) {
-            const angle = (i / 8) * Math.PI * 2;
-            this.ctx.beginPath();
-            this.ctx.moveTo(x, y);
-            this.ctx.lineTo(
-                x + Math.cos(angle) * 60,
-                y + Math.sin(angle) * 30
-            );
-            this.ctx.stroke();
-        }
     }
+} // <- ЗАКРЫТ МЕТОД drawLilyPad
     
     drawDetailedFrog() {
         // Тело (большое и круглое)
@@ -794,17 +1146,43 @@ drawAim() {
         this.ctx.beginPath();
         this.ctx.arc(15, 0, 4, 0, Math.PI * 2);
         this.ctx.fill();
+
+        // 🎯 СЛЕДУЮЩИЙ ШАР ВО РТУ
+if (this.frog.nextBall) {
+    const mouthX = 58;
+    const mouthY = 0;
+
+    // тень
+    this.ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    this.ctx.beginPath();
+    this.ctx.arc(mouthX + 3, mouthY + 3, 11, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    // шар
+    this.drawShinyBall(
+        mouthX,
+        mouthY,
+        11,
+        this.frog.nextBall
+    );
+}
+
     }
     
     drawPath() {
         if (this.chain.path.length < 2) return;
         
         // Толстый ручеек с градиентом
-        const gradient = this.ctx.createLinearGradient(0, 0, this.width, this.height);
-        gradient.addColorStop(0, 'rgba(33, 150, 243, 0.7)');
-        gradient.addColorStop(0.5, 'rgba(100, 181, 246, 0.8)');
-        gradient.addColorStop(1, 'rgba(66, 165, 245, 0.7)');
-        
+        const gradient = this.ctx.createLinearGradient(0, 0, 0, this.height);
+        gradient.addColorStop(0, ART.colors.water);
+        gradient.addColorStop(1, ART.colors.waterDark);
+
+        // Тень
+        this.ctx.strokeStyle = ART.shadowColor;
+        this.ctx.lineWidth = 32;
+        this.ctx.stroke();
+
+
         // Основной путь (толстый ручеек)
         this.ctx.strokeStyle = gradient;
         this.ctx.lineWidth = 25; // Толстый путь
@@ -817,6 +1195,15 @@ drawAim() {
             this.ctx.lineTo(this.chain.path[i].x, this.chain.path[i].y);
         }
         this.ctx.stroke();
+
+        const losePoint = this.getPathPoint(LOSE_POSITION);
+
+        this.ctx.strokeStyle = 'rgba(255,80,80,0.8)';
+        this.ctx.lineWidth = 4;
+        this.ctx.beginPath();
+        this.ctx.arc(losePoint.x, losePoint.y, 26, 0, Math.PI * 2);
+        this.ctx.stroke();
+
         
         // Берега ручейка
         this.ctx.strokeStyle = '#558B2F';
@@ -840,7 +1227,72 @@ drawAim() {
             this.ctx.fill();
         }
     }
-    
+    drawWhirlpool() {
+    const { x, y, radius, angle } = this.whirlpool;
+    const ctx = this.ctx;
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+
+    // Внешний круг
+    const outer = ctx.createRadialGradient(0, 0, radius * 0.3, 0, 0, radius);
+    outer.addColorStop(0, 'rgba(120,180,190,0.9)');
+    outer.addColorStop(1, 'rgba(40,90,110,0.9)');
+
+    ctx.fillStyle = outer;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Спираль
+    ctx.strokeStyle = 'rgba(220,245,255,0.6)';
+    ctx.lineWidth = 3;
+
+    ctx.beginPath();
+    for (let a = 0; a < Math.PI * 2.5; a += 0.2) {
+        const r = radius * (1 - a / (Math.PI * 2.5));
+        const px = Math.cos(a) * r;
+        const py = Math.sin(a) * r;
+        if (a === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+
+    // Центр
+    ctx.fillStyle = 'rgba(10,30,40,0.9)';
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * 0.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    const pulse =
+        this.isTutorial
+            ? Math.sin(Date.now() * 0.004) * 6
+            : 0;
+
+    ctx.scale(
+        1 + pulse / 100,
+        1 + pulse / 100
+    );
+
+    if (this.isTutorial) {
+        ctx.restore();
+        ctx.fillStyle = '#FF7043';
+        ctx.font = 'bold 18px Nunito';
+        ctx.textAlign = 'center';
+        ctx.fillText(
+            'СЮДА НЕЛЬЗЯ ❌',
+            this.whirlpool.x,
+            this.whirlpool.y + this.whirlpool.radius + 26
+        );
+        ctx.save();
+}
+
+
+
+    ctx.restore();
+}
+
     drawGameOverScreen() {
         // Фон
         this.ctx.fillStyle = 'rgba(26, 35, 47, 0.95)';
@@ -897,75 +1349,209 @@ drawAim() {
     // как в предыдущей версии, но используют новую графику
     
     shoot() {
-        if (!this.frog.nextBall || this.gameOver || this.isPaused) return;
-        
-        const angle = this.frog.angle * Math.PI / 180;
-        const speed = 10;
-        
-        this.projectiles.push({
-            x: this.frog.x + Math.cos(angle) * 50,
-            y: this.frog.y + Math.sin(angle) * 50,
-            vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed,
-            color: this.frog.nextBall,
-            radius: 20,
-            life: 150,
-            trail: []
-        });
-        
-        // Анимация стрельбы
-        this.frog.state = 'shooting';
-        this.frog.mouthOpen = true;
-        this.frog.nextBall = this.getRandomColor();
-        
-        setTimeout(() => {
-            this.frog.mouthOpen = false;
-            this.frog.state = 'aiming';
-        }, 100);
-    }
+    if (!this.frog.nextBall || this.gameOver || this.isPaused) return;
+
+    const angle = this.frog.angle * Math.PI / 180;
+    const speed = this.isTutorial ? 6 : 10;
+
+    this.projectiles.push({
+        x: this.frog.x + Math.cos(angle) * 50,
+        y: this.frog.y + Math.sin(angle) * 50,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        color: this.frog.nextBall,
+        radius: 20,
+        life: 150,
+        trail: []
+    });
+
+    this.frog.state = 'shooting';
+    this.frog.mouthOpen = true;
+    this.frog.nextBall = this.getRandomColor();
+
+    setTimeout(() => {
+        this.frog.mouthOpen = false;
+        this.frog.state = 'aiming';
+    }, 100);
+}
+
     
     restartGame() {
-        console.log('Restarting game...');
-        this.resetGame();
-        this.gameOver = false;
-        this.shouldShowGameOver = false;
-        this.isPaused = false;
-        this.lastTime = 0;
-    }
+    console.log('Restarting game...');
+
+    const savedLives = this.lives; // ← сохраняем жизни
+
+    this.resetGame();
+
+    this.lives = savedLives; // ← возвращаем уменьшенные жизни
+
+    this.gameOver = false;
+    this.isPaused = false;
+    this.lastTime = 0;
+
+    this.state = GAME_STATE.PLAY;
+}
+
+    clear() {
+    this.ctx.clearRect(0, 0, this.width, this.height);
+}
+
     
-    draw() {
-        // Градиентный фон
-        const gradient = this.ctx.createLinearGradient(0, 0, this.width, this.height);
-        gradient.addColorStop(0, '#E0F7FA');
-        gradient.addColorStop(0.5, '#B3E5FC');
-        gradient.addColorStop(1, '#81D4FA');
-        this.ctx.fillStyle = gradient;
-        this.ctx.fillRect(0, 0, this.width, this.height);
+    drawGame() {
+    // Фон (уже есть — этого достаточно)
+    const gradient = this.ctx.createLinearGradient(0, 0, this.width, this.height);
+    gradient.addColorStop(0, '#E0F7FA');
+    gradient.addColorStop(1, '#81D4FA');
+    this.ctx.fillStyle = gradient;
+    this.ctx.fillRect(0, 0, this.width, this.height);
+
+    // Облака
+    this.drawClouds();
+
+    // Ручей
+    this.drawPath();
+
+    // Цепочка
+    this.drawChain();
+
+    // Водоворот
+    this.drawWhirlpool();
+
+    // Снаряды
+    this.drawProjectiles();
+
+    // Лягушка
+    this.drawFrog();
+
+    // Эффекты
+    this.drawEffects();
+
+
+    // Прицел
+    this.drawAim();
         
-        // Декоративные облака
-        this.drawClouds();
-        
-        // Рисуем путь (ручеек)
-        this.drawPath();
-        
-        // Цепочка шаров
-        this.drawChain();
-        
-        // Снаряды
-        this.drawProjectiles();
-        
-        // Лягушка в центре
-        this.drawFrog();
-        
-        // Эффекты
-        this.drawEffects();
-        
-        // Следующий шар
-        this.drawNextBall();
-        
-        // Прицел
-        this.drawAim();
+    if (this.isTutorial) {
+        this.drawTutorialHint();
     }
+
+}
+    drawTutorialHint() {
+    const step = this.tutorialSteps[this.currentTutorialStep];
+    if (!step) return;
+
+    if (step.condition()) {
+        step.shown = true;
+        this.currentTutorialStep++;
+        return;
+    }
+
+    const ctx = this.ctx;
+    ctx.save();
+
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.beginPath();
+    ctx.roundRect(
+        this.width / 2 - 220,
+        this.height - 150,
+        440,
+        90,
+        20
+    );
+    ctx.fill();
+
+    ctx.fillStyle = '#2E7D32';
+    ctx.font = 'bold 22px Nunito, Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    const lines = step.text.split('\n');
+    lines.forEach((l, i) => {
+        ctx.fillText(
+            l,
+            this.width / 2,
+            this.height - 120 + i * 26
+        );
+    });
+
+    ctx.restore();
+}
+
+
+
+    drawWinScreen() {
+    this.ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    this.ctx.fillRect(0, 0, this.width, this.height);
+    if (this.isTutorial) {
+    this.ctx.fillText(
+        'Отлично! Ты готов 🐸✨',
+        this.width / 2,
+        this.height / 2 + 70
+    );
+}
+
+
+    this.ctx.fillStyle = '#388E3C';
+    this.ctx.font = 'bold 52px Nunito, Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('ПОБЕДА 🌸', this.width / 2, this.height / 2 - 40);
+    this.isTutorial = false;
+
+
+    this.ctx.font = '26px Nunito, Arial';
+    this.ctx.fillText('Нажмите для следующего уровня', this.width / 2, this.height / 2 + 30);
+}
+    drawLoseScreen() {
+    this.ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    this.ctx.fillRect(0, 0, this.width, this.height);
+
+    this.ctx.fillStyle = '#FF7043';
+    this.ctx.font = 'bold 52px Nunito, Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('ИГРА ОКОНЧЕНА', this.width / 2, this.height / 2 - 40);
+
+    this.ctx.font = '26px Nunito, Arial';
+    this.ctx.fillStyle = '#FFF';
+    this.ctx.fillText('Нажмите для рестарта', this.width / 2, this.height / 2 + 30);
+}
+
+    handleClick() {
+
+    if (this.state === GAME_STATE.WIN) {
+        this.levelUp();
+        this.state = GAME_STATE.PLAY;
+        return;
+    }
+
+    if (this.state === GAME_STATE.LOSE) {
+        this.restartGame();
+        this.state = GAME_STATE.PLAY;
+        return;
+    }
+
+
+    this.shoot();
+}
+    draw() {
+    this.clear();
+
+    switch (this.state) {
+        case GAME_STATE.PLAY:
+            this.drawGame();
+            this.drawLivesUI();
+            break;
+
+        case GAME_STATE.WIN:
+            this.drawGame(); // фон уровня
+            this.drawWinScreen();
+            break;
+
+        case GAME_STATE.LOSE:
+            this.drawGame();
+            this.drawLoseScreen();
+            break;
+    }
+}
     
     drawClouds() {
         this.ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
