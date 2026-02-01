@@ -143,7 +143,3 @@ canvas.addEventListener('touchend', () => {
         game.shoot();
     }
 });
-
-game = new ZumaGame('gameCanvas');
-game.lives = loadLives();
-game.startGame();
