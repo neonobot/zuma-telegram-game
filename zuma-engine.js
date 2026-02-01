@@ -44,7 +44,7 @@ class ZumaGame {
         this.width = this.canvas.width;
         this.height = this.canvas.height;
 
-        this.state = GAME_STATE.MENU
+        this.state = GAME_STATE.PLAY;
         
         
         // Пастельные цвета шаров
@@ -76,6 +76,9 @@ class ZumaGame {
         this.lastTime = 0;
         this.deltaTime = 0;
         this.gameLoopId = null;
+        this.chain.isAssembling = true;
+        this.chain.assembleProgress = -0.25; // за стартом
+
         
         // Лягушка - теперь в ЦЕНТРЕ!
         this.frog = {
@@ -289,7 +292,7 @@ updateEffects(delta) {
         const spacing = 0.028; // Расстояние между шарами
         
         for (let i = 0; i < ballCount; i++) {
-            const position = i * spacing;
+            const position = this.chain.assembleProgress - i * spacing;
             const point = this.getPathPoint(position);
             
             this.chain.balls.push({
@@ -376,6 +379,23 @@ updateEffects(delta) {
     }
     
     updateChain(delta) {
+        if (this.chain.isAssembling) {
+            this.chain.assembleProgress += 0.01 * delta;
+
+        for (let i = 0; i < this.chain.balls.length; i++) {
+        const target = this.chain.assembleProgress - i * 0.03;
+        this.chain.balls[i].position += (target - this.chain.balls[i].position) * 0.15;
+    }
+
+    // когда головной шар дошел до старта
+    if (this.chain.assembleProgress >= 0) {
+        this.chain.isAssembling = false;
+        this.chain.headPosition = 0;
+    }
+
+    return; // ⛔ НЕ выполняем обычное движение
+}
+  
         if (this.chain.freeze > 0) {
             this.chain.freeze--;
             return;
@@ -1292,18 +1312,7 @@ if (this.frog.nextBall) {
     this.drawAim();
 }
 
-    drawMenu() {
-    this.ctx.fillStyle = '#E3F2FD';
-    this.ctx.fillRect(0, 0, this.width, this.height);
 
-    this.ctx.fillStyle = '#2E7D32';
-    this.ctx.font = 'bold 56px Nunito, Arial';
-    this.ctx.textAlign = 'center';
-    this.ctx.fillText('🐸 ZUMA FROG', this.width / 2, this.height / 2 - 60);
-
-    this.ctx.font = '28px Nunito, Arial';
-    this.ctx.fillText('Нажмите, чтобы начать', this.width / 2, this.height / 2 + 20);
-}
     drawWinScreen() {
     this.ctx.fillStyle = 'rgba(255,255,255,0.85)';
     this.ctx.fillRect(0, 0, this.width, this.height);
@@ -1331,10 +1340,6 @@ if (this.frog.nextBall) {
 }
 
     handleClick() {
-    if (this.state === GAME_STATE.MENU) {
-        this.state = GAME_STATE.PLAY;
-        return;
-    }
 
     if (this.state === GAME_STATE.WIN) {
         this.levelUp();
@@ -1354,10 +1359,6 @@ if (this.frog.nextBall) {
     this.clear();
 
     switch (this.state) {
-        case GAME_STATE.MENU:
-            this.drawMenu();
-            break;
-
         case GAME_STATE.PLAY:
             this.drawGame();
             this.drawLivesUI();
