@@ -1265,17 +1265,21 @@ if (this.frog.nextBall) {
     }
     
     restartGame() {
-        console.log('Restarting game...');
-        this.resetGame();
-        this.gameOver = false;
-        this.shouldShowGameOver = false;
-        this.isPaused = false;
-        this.lastTime = 0;
-    }
-    startGame() {
+    console.log('Restarting game...');
+
+    const savedLives = this.lives; // ← сохраняем жизни
+
     this.resetGame();
+
+    this.lives = savedLives; // ← возвращаем уменьшенные жизни
+
+    this.gameOver = false;
+    this.isPaused = false;
+    this.lastTime = 0;
+
     this.state = GAME_STATE.PLAY;
 }
+
     clear() {
     this.ctx.clearRect(0, 0, this.width, this.height);
 }
@@ -1352,9 +1356,10 @@ if (this.frog.nextBall) {
 
     if (this.state === GAME_STATE.LOSE) {
         this.restartGame();
-        this.state = GAME_STATE.MENU;
+        this.state = GAME_STATE.PLAY;
         return;
     }
+
 
     this.shoot();
 }
