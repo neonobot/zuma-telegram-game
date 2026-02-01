@@ -106,10 +106,19 @@ this.currentTutorialStep = 0;
         this.deltaTime = 0;
         this.gameLoopId = null;
         this.isTutorial = this.level === 1;
+        this.chain = {
+            balls: [],
+            path: this.generateRoundSpiralPath(),
+            speed: this.isTutorial
+                ? 0.12
+                : 0.25 + (this.level * 0.015),
+            headPosition: 0,
 
-        this.chain.speed = this.isTutorial
-            ? 0.12   // 🔽 медленно
-            : 0.25 + (this.level * 0.015);
+            isAssembling: true,
+            assembleProgress: -0.25,
+            freeze: 40
+        };
+
 
 
         
@@ -1323,33 +1332,32 @@ if (this.frog.nextBall) {
     // как в предыдущей версии, но используют новую графику
     
     shoot() {
-        if (!this.frog.nextBall || this.gameOver || this.isPaused) return;
-        
-        const speed = this.isTutorial ? 6 : 10;
-        const angle = this.frog.angle * Math.PI / 180;
-        const speed = 10;
-        
-        this.projectiles.push({
-            x: this.frog.x + Math.cos(angle) * 50,
-            y: this.frog.y + Math.sin(angle) * 50,
-            vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed,
-            color: this.frog.nextBall,
-            radius: 20,
-            life: 150,
-            trail: []
-        });
-        
-        // Анимация стрельбы
-        this.frog.state = 'shooting';
-        this.frog.mouthOpen = true;
-        this.frog.nextBall = this.getRandomColor();
-        
-        setTimeout(() => {
-            this.frog.mouthOpen = false;
-            this.frog.state = 'aiming';
-        }, 100);
-    }
+    if (!this.frog.nextBall || this.gameOver || this.isPaused) return;
+
+    const angle = this.frog.angle * Math.PI / 180;
+    const speed = this.isTutorial ? 6 : 10;
+
+    this.projectiles.push({
+        x: this.frog.x + Math.cos(angle) * 50,
+        y: this.frog.y + Math.sin(angle) * 50,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        color: this.frog.nextBall,
+        radius: 20,
+        life: 150,
+        trail: []
+    });
+
+    this.frog.state = 'shooting';
+    this.frog.mouthOpen = true;
+    this.frog.nextBall = this.getRandomColor();
+
+    setTimeout(() => {
+        this.frog.mouthOpen = false;
+        this.frog.state = 'aiming';
+    }, 100);
+}
+
     
     restartGame() {
     console.log('Restarting game...');
