@@ -92,3 +92,63 @@ canvas.addEventListener('click', e => {
 game = new ZumaGame(canvas);
 game.lives = loadLives();
 game.start();
+
+/* =============================
+   INPUT & UI HANDLING
+============================= */
+
+canvas.addEventListener('click', e => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+    const my = (e.clientY - rect.top) * (canvas.height / rect.height);
+
+    // кнопки UI
+    for (const b of game.uiButtons) {
+        if (
+            mx > b.x - b.w / 2 &&
+            mx < b.x + b.w / 2 &&
+            my > b.y - b.h / 2 &&
+            my < b.y + b.h / 2
+        ) {
+            b.onClick();
+            return;
+        }
+    }
+
+    // стрельба
+    if (game.state === 'PLAY') {
+        game.shoot();
+    }
+});
+
+/* =============================
+   AIMING (mouse + touch)
+============================= */
+
+function updateFrogAim(clientX, clientY){
+    if (game.state !== 'PLAY') return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = (clientX - rect.left) * (canvas.width / rect.width);
+    const y = (clientY - rect.top) * (canvas.height / rect.height);
+
+    game.frog.angle = Math.atan2(
+        y - game.frog.y,
+        x - game.frog.x
+    );
+}
+
+// мышь
+canvas.addEventListener('mousemove', e => {
+    updateFrogAim(e.clientX, e.clientY);
+});
+
+// палец
+canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    updateFrogAim(
+        e.touches[0].clientX,
+        e.touches[0].clientY
+    );
+}, { passive:false });
+
