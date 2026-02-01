@@ -300,6 +300,9 @@ updateEffects(delta) {
                 wobble: Math.random() * Math.PI * 2,
                 wobbleSpeed: 0.02 + Math.random() * 0.02
             });
+            this.chain.headPosition = 0;
+            this.chain.freeze = 40; // кадров
+
         }
         
         this.chain.balls.sort((a, b) => a.position - b.position);
@@ -373,6 +376,11 @@ updateEffects(delta) {
     }
     
     updateChain(delta) {
+        if (this.chain.freeze > 0) {
+            this.chain.freeze--;
+            return;
+        }
+
         // Движение цепочки
         const speedMultiplier = 0.25;
         this.chain.headPosition += (this.chain.speed / 200) * delta * speedMultiplier;
@@ -402,6 +410,20 @@ updateEffects(delta) {
                 i--;
             }
         }
+        // 🌪 ПРОИГРЫШ ПРИ ДОСТИЖЕНИИ ВОДОВОРОТА
+        const head = this.chain.balls[0];
+        if (head) {
+            const p = this.getPathPoint(head.position);
+            const dx = p.x - this.whirlpool.x;
+            const dy = p.y - this.whirlpool.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist < this.whirlpool.radius * 0.75) {
+                this.loseLife();
+                this.chain.balls = [];
+    }
+}
+
     }
     
     loseLife() {
@@ -410,6 +432,14 @@ updateEffects(delta) {
     this.lives--;
     this.lastLifeRestore = Date.now();
 
+    localStorage.setItem(
+        'zumaLives',
+        JSON.stringify({
+            lives: this.lives,
+            lastLost: Date.now()
+        })
+    );
+
     const p = this.getPathPoint(0.85);
     this.createExplosion(p.x, p.y, '#FF8A80', 30);
 
@@ -417,12 +447,12 @@ updateEffects(delta) {
         this.state = GAME_STATE.LOSE;
         this.gameOver = true;
     } else {
-        // мягкий рестарт цепочки
         setTimeout(() => {
             this.createChain();
         }, 600);
     }
 }
+
 
     
     // Остальные методы остаются такими же, но с улучшенной графикой...
@@ -447,7 +477,16 @@ updateEffects(delta) {
         if (proj.x < -proj.radius || proj.x > this.width + proj.radius ||
             proj.y < -proj.radius || proj.y > this.height + proj.radius ||
             proj.life <= 0) {
-            this.projectiles.splice(i, 1);
+            this.chain.balls.unshift({
+                position: this.chain.balls[0]?.position - 0.03 || 0,
+                color: proj.color,
+                radius: 20,
+                wobble: 0,
+                wobbleSpeed: 0.02
+            });
+
+this.projectiles.splice(i, 1);
+            
             continue;
         }
         
@@ -653,30 +692,34 @@ drawBug(x, y, r) {
     this.ctx.fillStyle = '#000';
     this.ctx.fill();
 }    
-drawShinyBall(x, y, radius, color) {
-    // Основной цвет
-    this.ctx.fillStyle = color;
-    this.ctx.beginPath();
-    this.ctx.arc(x, y, radius, 0, Math.PI * 2);
-    this.ctx.fill();
-    
-    // Блик
-    const gradient = this.ctx.createRadialGradient(
-        x - radius/3, y - radius/3, 1,
-        x - radius/3, y - radius/3, radius/2
+drawShinyBall(x, y, r, color) {
+    const ctx = this.ctx;
+
+    // Тень
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.beginPath();
+    ctx.arc(x + 3, y + 3, r, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Градиент (объем)
+    const g = ctx.createRadialGradient(
+        x - r * 0.3, y - r * 0.3, r * 0.2,
+        x, y, r
     );
-    gradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
-    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-    
-    this.ctx.fillStyle = gradient;
-    this.ctx.beginPath();
-    this.ctx.arc(x - radius/3, y - radius/3, radius/2, 0, Math.PI * 2);
-    this.ctx.fill();
-    
-    // Контур
-    this.ctx.strokeStyle = this.darkenColor(color, 30);
-    this.ctx.lineWidth = 2;
-    this.ctx.stroke();
+    g.addColorStop(0, '#FFFFFF');
+    g.addColorStop(0.3, color);
+    g.addColorStop(1, this.darkenColor(color, 25));
+
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Блик
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.beginPath();
+    ctx.arc(x - r * 0.3, y - r * 0.3, r * 0.25, 0, Math.PI * 2);
+    ctx.fill();
 }
 
 drawProjectiles() {
