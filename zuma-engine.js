@@ -1,3 +1,4 @@
+
 class ZumaGame{
 constructor(canvas){
     this.ctx=canvas.getContext('2d');
@@ -70,21 +71,30 @@ update(){
 }
 
 drawStart(){
-    this.ctx.fillStyle='#bfe8f2';
-    this.ctx.fillRect(0,0,this.w,this.h);
+    const ctx = this.ctx;
 
-    this.ctx.fillStyle='#2f7d5b';
-    this.ctx.font='900 52px Nunito';
-    this.ctx.textAlign='center';
-    this.ctx.fillText('ZUMA FROG',this.w/2,200);
+    ctx.fillStyle = '#bfe8f2';
+    ctx.fillRect(0, 0, this.w, this.h);
 
-    this.ctx.font='700 26px Nunito';
-    this.ctx.fillText(`Уровень ${this.level}`,this.w/2,250);
+    ctx.fillStyle = '#2f7d5b';
+    ctx.font = '900 52px Nunito';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('ZUMA FROG', this.w / 2, 160);
 
-    this.drawButton(this.w/2,this.h/2,'Play',()=>{
-        this.startGame();
-    });
+    ctx.font = '700 26px Nunito';
+    ctx.fillText(`Уровень ${this.level}`, this.w / 2, 210);
+
+    this.drawUIButton(
+        this.w / 2,
+        this.h / 2,
+        220,
+        64,
+        'Play',
+        () => this.startGame()
+    );
 }
+
 
 drawUIButton(x, y, w, h, text, onClick) {
     const ctx = this.ctx;
@@ -131,49 +141,84 @@ drawUIButton(x, y, w, h, text, onClick) {
 
 draw(){
     this.uiButtons.length = 0;
-    this.ctx.clearRect(0,0,this.w,this.h);
+    this.ctx.clearRect(0, 0, this.w, this.h);
 
-    if(this.state==='START')return this.drawStart();
+    if (this.state === 'START') {
+        this.drawStart();
+        return;
+    }
 
-    this.chain.forEach(b=>{
-        const p=this.path(b.pos);
-        this.drawBall(p.x,p.y,b.color);
+    this.chain.forEach(b => {
+        const p = this.path(b.pos);
+        this.drawBall(p.x, p.y, b.color);
     });
 
-    this.projectiles.forEach(p=>{
-        this.drawBall(p.x,p.y,p.color);
+    this.projectiles.forEach(p => {
+        this.drawBall(p.x, p.y, p.color);
     });
 
     this.drawFrog();
     this.drawUI();
 
-    if(this.state==='WIN'||this.state==='LOSE'){
+    if (this.state === 'WIN' || this.state === 'LOSE') {
         this.drawOverlay();
     }
 }
 
 drawUI(){
-    this.ctx.fillStyle='#fff';
-    this.ctx.font='700 18px Nunito';
-    this.ctx.textAlign='left';
-    this.ctx.fillText(`❤️ ${this.lives}`,20,30);
-    this.ctx.fillText(`Уровень ${this.level}`,20,55);
+    const ctx = this.ctx;
+
+    // жизни
+    for(let i = 0; i < this.lives; i++){
+        const x = 24 + i * 30;
+        const y = 26;
+
+        ctx.fillStyle = '#ff9bb3';
+        ctx.beginPath();
+        ctx.arc(x - 6, y, 6, 0, Math.PI * 2);
+        ctx.arc(x + 6, y, 6, 0, Math.PI * 2);
+        ctx.lineTo(x, y + 14);
+        ctx.fill();
+    }
+
+    // уровень
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '700 18px Nunito';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`Уровень ${this.level}`, 20, 60);
 }
+
 
 drawOverlay(){
-    this.ctx.fillStyle='rgba(0,0,0,.5)';
-    this.ctx.fillRect(0,0,this.w,this.h);
+    const ctx = this.ctx;
 
-    const txt=this.state==='WIN'?'Level Complete!':'Level Failed';
-    this.ctx.fillStyle='#fff';
-    this.ctx.font='900 42px Nunito';
-    this.ctx.textAlign='center';
-    this.ctx.fillText(txt,this.w/2,this.h/2-40);
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(0, 0, this.w, this.h);
 
-    this.drawButton(this.w/2,this.h/2+40,'Retry',()=>{
-        this.startGame();
-    });
+    const text = this.state === 'WIN'
+        ? 'Level Complete!'
+        : 'Level Failed';
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '900 42px Nunito';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, this.w / 2, this.h / 2 - 60);
+
+    this.drawUIButton(
+        this.w / 2,
+        this.h / 2 + 30,
+        240,
+        64,
+        this.state === 'WIN' ? 'Next' : 'Retry',
+        () => {
+            if (this.state === 'WIN') this.level++;
+            this.startGame();
+        }
+    );
 }
+
 
 drawFrog(){
     this.ctx.save();
