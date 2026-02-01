@@ -119,33 +119,31 @@ class ZumaGame {
     generateRoundSpiralPath() {
     const path = [];
 
-    const centerX = this.width / 2;
-    const centerY = this.height / 2;
+    const cx = this.width / 2;
+    const cy = this.height / 2;
 
-    const turns = 3.2;                  // количество витков
-    const pointsPerTurn = 140;          // плотность
-    const totalPoints = Math.floor(turns * pointsPerTurn);
+    const turns = 3.0;
+    const pointsPerTurn = 160;
+    const total = Math.floor(turns * pointsPerTurn);
 
-    const startRadius = Math.min(this.width, this.height) * 0.42;
-    const endRadius   = Math.min(this.width, this.height) * 0.14;
+    const startR = Math.min(this.width, this.height) * 0.46;
+    const endR   = Math.min(this.width, this.height) * 0.22; // ⬅️ НЕ ДО ЦЕНТРА
 
-    for (let i = 0; i < totalPoints; i++) {
-        const t = i / (totalPoints - 1);
+    for (let i = 0; i < total; i++) {
+        const t = i / (total - 1);
 
-        // Угол
         const angle = t * turns * Math.PI * 2;
+        const radius = startR - t * (startR - endR);
 
-        // Радиус уменьшается ЛИНЕЙНО — ключевой момент
-        const radius = startRadius - t * (startRadius - endRadius);
-
-        const x = centerX + Math.cos(angle) * radius;
-        const y = centerY + Math.sin(angle) * radius;
-
-        path.push({ x, y });
+        path.push({
+            x: cx + Math.cos(angle) * radius,
+            y: cy + Math.sin(angle) * radius
+        });
     }
 
     return path;
 }
+
     formatTime(ms) {
     const totalSeconds = Math.max(0, Math.floor(ms / 1000));
     const minutes = Math.floor(totalSeconds / 60);
@@ -1176,24 +1174,41 @@ drawAim() {
 
     
     drawGame() {
-    // Фон
+    // Фон (уже есть — этого достаточно)
     const gradient = this.ctx.createLinearGradient(0, 0, this.width, this.height);
     gradient.addColorStop(0, '#E0F7FA');
     gradient.addColorStop(1, '#81D4FA');
     this.ctx.fillStyle = gradient;
     this.ctx.fillRect(0, 0, this.width, this.height);
 
-    this.drawBackground();
+    // Облака
     this.drawClouds();
+
+    // Ручей
     this.drawPath();
+
+    // Цепочка
     this.drawChain();
+
+    // Водоворот
     this.drawWhirlpool();
+
+    // Снаряды
     this.drawProjectiles();
+
+    // Лягушка
     this.drawFrog();
+
+    // Эффекты
     this.drawEffects();
+
+    // Следующий шар (яркий блок)
     this.drawNextBall();
+
+    // Прицел
     this.drawAim();
 }
+
     drawMenu() {
     this.ctx.fillStyle = '#E3F2FD';
     this.ctx.fillRect(0, 0, this.width, this.height);
@@ -1231,14 +1246,7 @@ drawAim() {
     this.ctx.fillStyle = '#FFF';
     this.ctx.fillText('Нажмите для рестарта', this.width / 2, this.height / 2 + 30);
 }
-    drawLivesUI() {
-    for (let i = 0; i < this.lives; i++) {
-        this.ctx.fillStyle = '#E53935';
-        this.ctx.beginPath();
-        this.ctx.arc(30 + i * 28, 30, 10, 0, Math.PI * 2);
-        this.ctx.fill();
-    }
-}
+
     handleClick() {
     if (this.state === GAME_STATE.MENU) {
         this.state = GAME_STATE.PLAY;
