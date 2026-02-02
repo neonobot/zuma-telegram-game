@@ -867,26 +867,23 @@ drawChain() {
         const x = ball.renderX ?? this.getPathPoint(ball.position).x;
         const y = ball.renderY ?? this.getPathPoint(ball.position).y;
 
-
         const wobbleX = Math.sin(ball.wobble) * 2;
         const wobbleY = Math.cos(ball.wobble) * 2;
 
-        // 🐞 ЕСЛИ ЭТО ЖУЧОК — РИСУЕМ ЕГО
+        // 🐞 Жучок
         if (ball.type === 'bug') {
-            this.drawBug(x, y, ball.radius, ball);
-        } 
-        // ⚪ ОБЫЧНЫЙ ШАР
-        else {
+            this.drawBug(x + wobbleX, y + wobbleY, ball.radius, ball);
+        } else {
             this.drawBallSprite(
-                x,
-                y,
+                x + wobbleX,
+                y + wobbleY,
                 ball.radius,
                 ball.colorIndex ?? 0
             );
-
         }
     }
 }
+
 
 drawBug(x, y, r, ball) {
     if (!ASSETS.ready) return;
@@ -942,47 +939,34 @@ drawBug(x, y, r, ball) {
 drawBallSprite(x, y, r, colorIndex = 0) {
     if (!ASSETS.ready) return;
 
-    const size = 96;
-    const scale = (r * 200) / size;
+    const size = 96; // размер одного шарика в спрайте
+    const scale = (r * 2) / size; // масштаб под radius
 
     this.ctx.drawImage(
         ASSETS.balls,
-        colorIndex * size, 0, size, size,
-        x - r, y - r,
-        size * scale, size * scale
+        colorIndex * size, 0, size, size, // вырезаем нужный шарик
+        x - r, y - r,                      // позиция на canvas
+        size * scale, size * scale         // размер на canvas
     );
 }
 
+
 drawProjectiles() {
     for (const proj of this.projectiles) {
-        // след
+        // след можно оставить через fillStyle, но можно и убрать
         for (let i = 0; i < proj.trail.length; i++) {
             const p = proj.trail[i];
             const alpha = (i / proj.trail.length) * 0.25;
-
-            const color = this.colors[proj.colorIndex];
-
-            this.ctx.fillStyle = `rgba(
-                ${parseInt(color.slice(1,3),16)},
-                ${parseInt(color.slice(3,5),16)},
-                ${parseInt(color.slice(5,7),16)},
-                ${alpha}
-            )`;
-
-            this.ctx.beginPath();
-            this.ctx.arc(p.x, p.y, proj.radius * 0.6, 0, Math.PI * 2);
-            this.ctx.fill();
+            this.ctx.globalAlpha = alpha;
+            this.drawBallSprite(p.x, p.y, proj.radius, proj.colorIndex);
         }
 
         // основной шар
-        this.drawBallSprite(
-            proj.x,
-            proj.y,
-            proj.radius,
-            proj.colorIndex
-        );
+        this.ctx.globalAlpha = 1;
+        this.drawBallSprite(proj.x, proj.y, proj.radius, proj.colorIndex);
     }
 }
+
 
 
 drawEffects() {
@@ -1292,8 +1276,8 @@ if (this.frog.nextBall) {
         11,
         this.frog.nextBall
     );
-
 }
+
 
     }
     
