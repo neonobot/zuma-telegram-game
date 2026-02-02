@@ -546,6 +546,11 @@ updateEffects(delta) {
         this.updateWhirlpoolSuck(delta);
         return;
     }
+    for (const ball of this.chain.balls) {
+        ball.renderX = undefined;
+        ball.renderY = undefined;
+    }
+
 
     /* ===============================
        1. ФАЗА СБОРКИ (СТАРТ)
@@ -974,7 +979,13 @@ drawProjectiles() {
         }
         
         // Основной шар
-        this.drawShinyBall(proj.x, proj.y, proj.radius, proj.color);
+        this.drawBallSprite(
+            proj.x,
+            proj.y,
+            proj.radius,
+            proj.colorIndex
+        );
+
     }
 }
 
@@ -1279,12 +1290,13 @@ if (this.frog.nextBall) {
     this.ctx.fill();
 
     // шар
-    this.drawShinyBall(
+    this.drawBallSprite(
         mouthX,
         mouthY,
         11,
         this.frog.nextBall
     );
+
 }
 
     }
@@ -1440,7 +1452,7 @@ if (this.frog.nextBall) {
         y: this.frog.y + Math.sin(angle) * 50,
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed,
-        color: this.frog.nextBall,
+        colorIndex: this.frog.nextBall,
         radius: 20,
         life: 150,
         trail: []
