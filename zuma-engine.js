@@ -432,8 +432,8 @@ updateEffects(delta) {
     }
     
     getRandomColor() {
-        return this.colors[Math.floor(Math.random() * this.colors.length)];
-    }
+        return Math.floor(Math.random() * this.colors.length);
+}
     
     init() {
     console.log('Starting game...');
@@ -514,6 +514,7 @@ updateEffects(delta) {
     this.updateChain(delta);
     this.updateProjectiles(delta);
     this.updateEffects(delta);
+    this.updateWhirlpool(delta);
 
     // ❤️ восстановление жизни
     if (
@@ -522,7 +523,7 @@ updateEffects(delta) {
     ) {
         this.lives++;
         this.lastLifeRestore = Date.now();
-        this.updateWhirlpool(delta);
+    
     }
 }
     
@@ -688,12 +689,13 @@ updateEffects(delta) {
             proj.y < -proj.radius || proj.y > this.height + proj.radius ||
             proj.life <= 0) {
             this.chain.balls.unshift({
-                position: this.chain.balls[0]?.position - 0.03 || 0,
-                color: proj.color,
-                radius: 20,
+                position: this.chain.balls[0]?.position - BALL_SPACING || 0,
+                colorIndex: proj.colorIndex,
+                radius: BALL_RADIUS,
                 wobble: 0,
                 wobbleSpeed: 0.02
             });
+
 
 this.projectiles.splice(i, 1);
             
@@ -766,12 +768,12 @@ handleProjectileCollision(projIndex, proj, collision) {
 checkForMatches(startIndex) {
     if (startIndex < 0 || startIndex >= this.chain.balls.length) return;
     
-    const color = this.chain.balls[startIndex].color;
+    const color = this.chain.balls[startIndex].colorIndex;
     let matches = [startIndex];
     
     // Проверяем влево
     for (let i = startIndex - 1; i >= 0; i--) {
-        if (this.chain.balls[i].color === color) {
+        if (this.chain.balls[i].colorIndex === color) {
             matches.unshift(i);
         } else break;
     }
@@ -828,10 +830,13 @@ removeMatches(matches) {
     }
     
     // Проверяем конец уровня
-    if (this.chain.balls.length === 0) {
-    this.state = GAME_STATE.WIN;
-    this.levelUp();
-}
+    if (
+        this.chain.balls.length === 1 &&
+        this.chain.balls[0].type === 'bug'
+    ) {
+        this.state = GAME_STATE.WIN;
+    }
+
 
 }
 
@@ -950,44 +955,35 @@ drawBallSprite(x, y, r, colorIndex = 0) {
 
 drawProjectiles() {
     for (const proj of this.projectiles) {
-        // След
+        // след
         for (let i = 0; i < proj.trail.length; i++) {
-            const point = proj.trail[i];
-            const alpha = i / proj.trail.length * 0.3;
-            
-            // ФИКС: правильное создание цвета с альфа-каналом
-            const color = proj.color;
-            let rgbaColor;
-            
-            if (color.startsWith('#')) {
-                // HEX в RGBA
-                const r = parseInt(color.slice(1, 3), 16);
-                const g = parseInt(color.slice(3, 5), 16);
-                const b = parseInt(color.slice(5, 7), 16);
-                rgbaColor = `rgba(${r}, ${g}, ${b}, ${alpha})`;
-            } else if (color.startsWith('rgb')) {
-                // RGB в RGBA
-                rgbaColor = color.replace(')', `, ${alpha})`).replace('rgb', 'rgba');
-            } else {
-                rgbaColor = `rgba(255, 255, 255, ${alpha})`; // fallback
-            }
-            
-            this.ctx.fillStyle = rgbaColor;
+            const p = proj.trail[i];
+            const alpha = (i / proj.trail.length) * 0.25;
+
+            const color = this.colors[proj.colorIndex];
+
+            this.ctx.fillStyle = `rgba(
+                ${parseInt(color.slice(1,3),16)},
+                ${parseInt(color.slice(3,5),16)},
+                ${parseInt(color.slice(5,7),16)},
+                ${alpha}
+            )`;
+
             this.ctx.beginPath();
-            this.ctx.arc(point.x, point.y, proj.radius * 0.7, 0, Math.PI * 2);
+            this.ctx.arc(p.x, p.y, proj.radius * 0.6, 0, Math.PI * 2);
             this.ctx.fill();
         }
-        
-        // Основной шар
+
+        // основной шар
         this.drawBallSprite(
             proj.x,
             proj.y,
             proj.radius,
             proj.colorIndex
         );
-
     }
 }
+
 
 drawEffects() {
     // Частицы
@@ -1442,7 +1438,7 @@ if (this.frog.nextBall) {
     // как в предыдущей версии, но используют новую графику
     
     shoot() {
-    if (!this.frog.nextBall || this.gameOver || this.isPaused) return;
+    if (this.frog.nextBall === undefined || this.gameOver || this.isPaused) return;
 
     const angle = this.frog.angle * Math.PI / 180;
     const speed = this.isTutorial ? 6 : 10;
@@ -1452,20 +1448,13 @@ if (this.frog.nextBall) {
         y: this.frog.y + Math.sin(angle) * 50,
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed,
-        colorIndex: this.frog.nextBall,
-        radius: 20,
+        colorIndex: this.frog.nextBall, // ✅ ТОЛЬКО индекс
+        radius: BALL_RADIUS,
         life: 150,
         trail: []
     });
 
-    this.frog.state = 'shooting';
-    this.frog.mouthOpen = true;
     this.frog.nextBall = this.getRandomColor();
-
-    setTimeout(() => {
-        this.frog.mouthOpen = false;
-        this.frog.state = 'aiming';
-    }, 100);
 }
 
     
