@@ -33,9 +33,6 @@ const GAME_STATE = {
 };
 const BALL_RADIUS = 20;
 const BALL_SPACING = 0.011;
-chain.speed       = 0.12 (tutorial) → 0.22 (late game)
-speed coeff       = 0.002
-follow strength   = 0.22
 
 
 
