@@ -31,7 +31,9 @@ const GAME_STATE = {
     WIN: 'WIN',
     LOSE: 'LOSE'
 };
-const BALL_SPACING = 0.02;
+const BALL_RADIUS = 20;
+const BALL_SPACING = (BALL_RADIUS * 2) * 0.78; // 🔥 как в оригинальной Zuma
+
 
 
 class ZumaGame {
@@ -259,14 +261,28 @@ this.currentTutorialStep = 0;
     return path;
 }
     resize() {
+    const dpr = window.devicePixelRatio || 1;
+
+    const baseW = 800;
+    const baseH = 600;
+
     const scale = Math.min(
-        window.innerWidth / 800,
-        window.innerHeight / 600
+        window.innerWidth / baseW,
+        window.innerHeight / baseH
     );
 
-    this.canvas.style.width = `${800 * scale}px`;
-    this.canvas.style.height = `${600 * scale}px`;
+    this.canvas.width = baseW * dpr;
+    this.canvas.height = baseH * dpr;
+
+    this.canvas.style.width = `${baseW * scale}px`;
+    this.canvas.style.height = `${baseH * scale}px`;
+
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    this.width = baseW;
+    this.height = baseH;
 }
+
 
 
     formatTime(ms) {
@@ -398,33 +414,32 @@ updateEffects(delta) {
 
     
     createChain() {
-        this.chain.balls = [];
-        const ballCount = 18 + this.level * 2;
-        const spacing = BALL_SPACING; // Расстояние между шарами
-        
-        for (let i = 0; i < ballCount; i++) {
-            const position = this.chain.assembleProgress - i * spacing;
-            const point = this.getPathPoint(position);
-            
-            this.chain.balls.push({
-                position: position,
-                color: this.getRandomColor(),
-                radius: 20, // Чуть больше шары
-                index: i,
-                wobble: Math.random() * Math.PI * 2,
-                wobbleSpeed: 0.02 + Math.random() * 0.02
-            });
-            this.chain.headPosition = 0;
-            this.chain.freeze = 40; // кадров
+    this.chain.balls = [];
 
-        }
-        
-        this.chain.balls.sort((a, b) => a.position - b.position);
-        if (this.chain.balls.length > 0) {
-    this.chain.balls[this.chain.balls.length - 1].type = 'bug';
-}
-        this.chain.headPosition = this.chain.balls[0]?.position || 0;
+    const ballCount = 18 + this.level * 2;
+    let pos = -BALL_SPACING * ballCount;
+
+    for (let i = 0; i < ballCount; i++) {
+        this.chain.balls.push({
+            position: pos,
+            color: this.getRandomColor(),
+            radius: BALL_RADIUS,
+            wobble: Math.random() * Math.PI * 2,
+            wobbleSpeed: 0.015 + Math.random() * 0.015
+        });
+
+        pos += BALL_SPACING;
     }
+
+    // 🐞 последний — жучок
+    this.chain.balls[this.chain.balls.length - 1].type = 'bug';
+
+    this.chain.headPosition = this.chain.balls[0].position;
+    this.chain.isAssembling = true;
+    this.chain.assembleProgress = this.chain.headPosition;
+    this.chain.freeze = 30;
+}
+
     
     startGameLoop() {
         // Останавливаем предыдущий цикл если есть
@@ -499,66 +514,61 @@ updateEffects(delta) {
     }
     
     updateChain(delta) {
-        if (this.isSucking) {
-            this.updateWhirlpoolSuck(delta);
-            return;
-        }
-        if (this.chain.isAssembling) {
-            this.chain.assembleProgress += 0.01 * delta;
-
-        for (let i = 0; i < this.chain.balls.length; i++) {
-        const target = this.chain.assembleProgress - i * BALL_SPACING;
-        this.chain.balls[i].position += (target - this.chain.balls[i].position) * 0.15;
+    if (this.isSucking) {
+        this.updateWhirlpoolSuck(delta);
+        return;
     }
 
-    // когда головной шар дошел до старта
-    if (this.chain.assembleProgress >= 0) {
-        this.chain.isAssembling = false;
-        this.chain.headPosition = 0;
-    }
+    // 🧲 ФАЗА СБОРКИ
+    if (this.chain.isAssembling) {
+        this.chain.assembleProgress += 0.004 * delta;
 
-    return; // ⛔ НЕ выполняем обычное движение
-}
-  
-        if (this.chain.freeze > 0) {
-            this.chain.freeze--;
-            return;
-        }
+        let prevPos = this.chain.assembleProgress;
 
-        // Движение цепочки
-        const speedMultiplier = 0.25;
-        this.chain.headPosition += (this.chain.speed / 200) * delta * speedMultiplier;
-        
-        // Обновляем каждый шар
         for (let i = 0; i < this.chain.balls.length; i++) {
             const ball = this.chain.balls[i];
-            
-            if (i === 0) {
-                ball.position = this.chain.headPosition;
-            } else {
-                const targetPos =
-                    this.chain.balls[i - 1].position - BALL_SPACING;
+            const target = prevPos - BALL_SPACING;
 
-                const diff = targetPos - ball.position;
-                
-                if (Math.abs(diff) > 0.001) {
-                    ball.position += diff * 0.05 * delta * speedMultiplier;
-                }
-            }
-            
-            // Колебание
-            ball.wobble += ball.wobbleSpeed * delta;
-            
-            // Проверка конца пути
-            if (ball.position >= LOSE_POSITION) {
-                this.triggerLose();
-                return;
-            }
-
+            ball.position += (target - ball.position) * 0.25;
+            prevPos = ball.position;
         }
 
-
+        if (this.chain.assembleProgress >= 0) {
+            this.chain.isAssembling = false;
+            this.chain.headPosition = this.chain.balls[0].position;
+        }
+        return;
     }
+
+    // ⏸ заморозка
+    if (this.chain.freeze > 0) {
+        this.chain.freeze--;
+        return;
+    }
+
+    // ▶ движение головы
+    this.chain.headPosition += this.chain.speed * delta * 0.002;
+
+    this.chain.balls[0].position = this.chain.headPosition;
+
+    // ▶ подтягивание остальных шаров
+    for (let i = 1; i < this.chain.balls.length; i++) {
+        const prev = this.chain.balls[i - 1];
+        const ball = this.chain.balls[i];
+
+        const target = prev.position - BALL_SPACING;
+        ball.position += (target - ball.position) * 0.35;
+    }
+
+    // ❌ проигрыш
+    for (const ball of this.chain.balls) {
+        if (ball.position >= LOSE_POSITION) {
+            this.triggerLose();
+            return;
+        }
+    }
+}
+
     
     
     loseLife() {
@@ -652,25 +662,22 @@ this.projectiles.splice(i, 1);
 }
 
 checkProjectileCollision(proj) {
-    // Ищем ближайший шар в цепочке
-    let closestBall = null;
-    let minDistance = Infinity;
-    
     for (let i = 0; i < this.chain.balls.length; i++) {
         const ball = this.chain.balls[i];
-        const point = this.getPathPoint(ball.position);
-        const dx = proj.x - point.x;
-        const dy = proj.y - point.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        
-        if (distance < (proj.radius + ball.radius) && distance < minDistance) {
-            minDistance = distance;
-            closestBall = { ball, index: i, point };
+        const p = this.getPathPoint(ball.position);
+
+        const dx = proj.x - p.x;
+        const dy = proj.y - p.y;
+        const dist = Math.hypot(dx, dy);
+
+        // 🔥 плотное попадание как в Zuma
+        if (dist < proj.radius + ball.radius + 2) {
+            return { ball, index: i, point: p };
         }
     }
-    
-    return closestBall ? { ball: closestBall.ball, index: closestBall.index, point: closestBall.point } : null;
+    return null;
 }
+
 
 handleProjectileCollision(projIndex, proj, collision) {
     // Создаем эффект взрыва
