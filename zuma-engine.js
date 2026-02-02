@@ -20,6 +20,29 @@ const ART = {
 
     shadowColor: 'rgba(0, 40, 30, 0.25)'
 };
+const ASSETS = {
+    balls: new Image(),
+    bug: new Image(),
+    whirlpool: new Image(),
+    ready: false
+};
+
+ASSETS.balls.src = 'assets/images/balls.png';
+ASSETS.bug.src = 'assets/images/bug.png';
+ASSETS.whirlpool.src = 'assets/images/whirlpool.png';
+
+let assetsLoaded = 0;
+Object.values(ASSETS).forEach(img => {
+    if (!(img instanceof Image)) return;
+    img.onload = () => {
+        assetsLoaded++;
+        if (assetsLoaded === 3) {
+            ASSETS.ready = true;
+            console.log('✅ All assets loaded');
+        }
+    };
+});
+
 
 const WIN_CONDITION_LAST_BUG = true;
 const LOSE_POSITION = 0.95;
@@ -427,7 +450,7 @@ updateEffects(delta) {
     for (let i = 0; i < ballCount; i++) {
         this.chain.balls.push({
             position: pos,
-            color: this.getRandomColor(),
+            colorIndex: Math.floor(Math.random() * 5),
             radius: BALL_RADIUS,
             wobble: Math.random() * Math.PI * 2,
             wobbleSpeed: 0.015 + Math.random() * 0.015
@@ -840,74 +863,56 @@ drawChain() {
 
         // 🐞 ЕСЛИ ЭТО ЖУЧОК — РИСУЕМ ЕГО
         if (ball.type === 'bug') {
-            this.drawBug(x, y, ball.radius);
+            this.drawBug(x, y, ball.radius, ball);
         } 
         // ⚪ ОБЫЧНЫЙ ШАР
         else {
-            this.drawShinyBall(x, y, ball.radius, ball.color);
+            this.drawBallSprite(
+                x,
+                y,
+                ball.radius,
+                ball.colorIndex ?? 0
+            );
+
         }
     }
 }
 
-drawBug(x, y, r) {
-    // Тело
-    this.ctx.fillStyle = ART.colors.bugRed;
-    this.ctx.beginPath();
-    this.ctx.arc(x, y, r, 0, Math.PI * 2);
-    this.ctx.fill();
+drawBug(x, y, r, ball) {
+    if (!ASSETS.ready) return;
 
-    // Линия
-    this.ctx.strokeStyle = '#000';
-    this.ctx.lineWidth = 2;
-    this.ctx.beginPath();
-    this.ctx.moveTo(x, y - r);
-    this.ctx.lineTo(x, y + r);
-    this.ctx.stroke();
+    const frameSize = 128;
+    const totalFrames = 20;
 
-    // Точки
-    this.ctx.beginPath();
-    this.ctx.arc(x - 6, y - 4, 3, 0, Math.PI * 2);
-    this.ctx.arc(x + 6, y + 4, 3, 0, Math.PI * 2);
-    this.ctx.fillStyle = '#000';
-    this.ctx.fill();
-    
-    if (this.isTutorial) {
-        this.ctx.strokeStyle = '#FFD54F';
-        this.ctx.lineWidth = 4;
-        this.ctx.beginPath();
-        this.ctx.arc(x, y, r + 4, 0, Math.PI * 2);
-        this.ctx.stroke();
+    if (ball.bugFrame === undefined) ball.bugFrame = 0;
+
+    ball.bugFrame += 0.15;
+    const frame = Math.floor(ball.bugFrame) % totalFrames;
+
+    const scale = (r * 2) / frameSize;
+
+    this.ctx.drawImage(
+        ASSETS.bug,
+        frame * frameSize, 0, frameSize, frameSize,
+        x - r, y - r,
+        frameSize * scale, frameSize * scale
+    );
 }
 
+
 }    
-drawShinyBall(x, y, r, color) {
-    const ctx = this.ctx;
+drawBallSprite(x, y, r, colorIndex = 0) {
+    if (!ASSETS.ready) return;
 
-    // Тень
-    ctx.fillStyle = 'rgba(0,0,0,0.25)';
-    ctx.beginPath();
-    ctx.arc(x + 3, y + 3, r, 0, Math.PI * 2);
-    ctx.fill();
+    const size = 96;
+    const scale = (r * 2) / size;
 
-    // Градиент (объем)
-    const g = ctx.createRadialGradient(
-        x - r * 0.3, y - r * 0.3, r * 0.2,
-        x, y, r
+    this.ctx.drawImage(
+        ASSETS.balls,
+        colorIndex * size, 0, size, size,
+        x - r, y - r,
+        size * scale, size * scale
     );
-    g.addColorStop(0, '#FFFFFF');
-    g.addColorStop(0.3, color);
-    g.addColorStop(1, this.darkenColor(color, 25));
-
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Блик
-    ctx.fillStyle = 'rgba(255,255,255,0.6)';
-    ctx.beginPath();
-    ctx.arc(x - r * 0.3, y - r * 0.3, r * 0.25, 0, Math.PI * 2);
-    ctx.fill();
 }
 
 drawProjectiles() {
@@ -1315,77 +1320,30 @@ if (this.frog.nextBall) {
         }
     }
     drawWhirlpool() {
-    const { x, y, radius, angle, pulse = 0 } = this.whirlpool;
-    const ctx = this.ctx;
+    if (!ASSETS.ready) return;
 
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(angle);
+    const { x, y, radius } = this.whirlpool;
 
-    // 🌊 внешний вихрь
-    const outer = ctx.createRadialGradient(
-        0, 0, radius * 0.2,
-        0, 0, radius + pulse
+    const frameSize = 256;
+    const frames = 4;
+
+    if (!this.whirlpool.frame) this.whirlpool.frame = 0;
+    this.whirlpool.frame += 0.12;
+
+    const frame = Math.floor(this.whirlpool.frame) % frames;
+
+    const size = radius * 2.4;
+
+    this.ctx.drawImage(
+        ASSETS.whirlpool,
+        frame * frameSize, 0, frameSize, frameSize,
+        x - size / 2,
+        y - size / 2,
+        size,
+        size
     );
-    outer.addColorStop(0, 'rgba(200,245,255,0.95)');
-    outer.addColorStop(0.5, 'rgba(120,190,210,0.9)');
-    outer.addColorStop(1, 'rgba(30,80,100,0.9)');
-
-    ctx.fillStyle = outer;
-    ctx.beginPath();
-    ctx.arc(0, 0, radius + pulse, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 🌀 СПИРАЛЬ (АНИМИРОВАННАЯ)
-    ctx.strokeStyle = 'rgba(240,255,255,0.75)';
-    ctx.lineWidth = 3;
-
-    ctx.beginPath();
-    const turns = 3.2;
-    const steps = 140;
-
-    for (let i = 0; i <= steps; i++) {
-        const t = i / steps;
-        const a = t * turns * Math.PI * 2;
-        const r =
-            (radius + pulse) *
-            (1 - t) *
-            (0.85 + Math.sin(Date.now() * 0.003 + t * 8) * 0.05);
-
-        const px = Math.cos(a) * r;
-        const py = Math.sin(a) * r;
-
-        if (i === 0) ctx.moveTo(px, py);
-        else ctx.lineTo(px, py);
-    }
-    ctx.stroke();
-
-    // ⚫ ТЁМНЫЙ ЦЕНТР
-    ctx.fillStyle = 'rgba(10,25,35,0.95)';
-    ctx.beginPath();
-    ctx.arc(0, 0, radius * 0.22, 0, Math.PI * 2);
-    ctx.fill();
-
-    // ✨ мерцание
-    ctx.globalAlpha = 0.6;
-    ctx.fillStyle = '#E0F7FA';
-    for (let i = 0; i < 6; i++) {
-        const a = Math.random() * Math.PI * 2;
-        const r = Math.random() * radius * 0.8;
-        ctx.beginPath();
-        ctx.arc(
-            Math.cos(a) * r,
-            Math.sin(a) * r,
-            1.5,
-            0,
-            Math.PI * 2
-        );
-        ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-
-    ctx.restore();
 }
+
 
 
     drawGameOverScreen() {
