@@ -185,6 +185,7 @@ this.currentTutorialStep = 0;
     }
 }
     updateWhirlpoolSuck(delta) {
+    this.whirlpool.angle += 0.18 * delta;
     const speed = 0.04 * delta;
 
     for (let i = this.chain.balls.length - 1; i >= 0; i--) {
@@ -446,8 +447,14 @@ updateEffects(delta) {
         this.gameLoopId = requestAnimationFrame(gameLoop);
     }
     updateWhirlpool(delta) {
-    this.whirlpool.angle += 0.02 * delta;
+    // постоянное вращение
+    this.whirlpool.angle += 0.06 * delta;
+
+    // дыхание (пульсация)
+    this.whirlpool.pulse =
+        Math.sin(Date.now() * 0.004) * 6;
 }
+
     update(delta) {
     if (this.state !== GAME_STATE.PLAY) return;
 
@@ -1271,70 +1278,78 @@ if (this.frog.nextBall) {
         }
     }
     drawWhirlpool() {
-    const { x, y, radius, angle } = this.whirlpool;
+    const { x, y, radius, angle, pulse = 0 } = this.whirlpool;
     const ctx = this.ctx;
 
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(angle);
 
-    // Внешний круг
-    const outer = ctx.createRadialGradient(0, 0, radius * 0.3, 0, 0, radius);
-    outer.addColorStop(0, 'rgba(120,180,190,0.9)');
-    outer.addColorStop(1, 'rgba(40,90,110,0.9)');
+    // 🌊 внешний вихрь
+    const outer = ctx.createRadialGradient(
+        0, 0, radius * 0.2,
+        0, 0, radius + pulse
+    );
+    outer.addColorStop(0, 'rgba(200,245,255,0.95)');
+    outer.addColorStop(0.5, 'rgba(120,190,210,0.9)');
+    outer.addColorStop(1, 'rgba(30,80,100,0.9)');
 
     ctx.fillStyle = outer;
     ctx.beginPath();
-    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.arc(0, 0, radius + pulse, 0, Math.PI * 2);
     ctx.fill();
 
-    // Спираль
-    ctx.strokeStyle = 'rgba(220,245,255,0.6)';
+    // 🌀 СПИРАЛЬ (АНИМИРОВАННАЯ)
+    ctx.strokeStyle = 'rgba(240,255,255,0.75)';
     ctx.lineWidth = 3;
 
     ctx.beginPath();
-    for (let a = 0; a < Math.PI * 2.5; a += 0.2) {
-        const r = radius * (1 - a / (Math.PI * 2.5));
+    const turns = 3.2;
+    const steps = 140;
+
+    for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const a = t * turns * Math.PI * 2;
+        const r =
+            (radius + pulse) *
+            (1 - t) *
+            (0.85 + Math.sin(Date.now() * 0.003 + t * 8) * 0.05);
+
         const px = Math.cos(a) * r;
         const py = Math.sin(a) * r;
-        if (a === 0) ctx.moveTo(px, py);
+
+        if (i === 0) ctx.moveTo(px, py);
         else ctx.lineTo(px, py);
     }
     ctx.stroke();
 
-    // Центр
-    ctx.fillStyle = 'rgba(10,30,40,0.9)';
+    // ⚫ ТЁМНЫЙ ЦЕНТР
+    ctx.fillStyle = 'rgba(10,25,35,0.95)';
     ctx.beginPath();
-    ctx.arc(0, 0, radius * 0.2, 0, Math.PI * 2);
+    ctx.arc(0, 0, radius * 0.22, 0, Math.PI * 2);
     ctx.fill();
 
-    const pulse =
-        this.isTutorial
-            ? Math.sin(Date.now() * 0.004) * 6
-            : 0;
-
-    ctx.scale(
-        1 + pulse / 100,
-        1 + pulse / 100
-    );
-
-    if (this.isTutorial) {
-        ctx.restore();
-        ctx.fillStyle = '#FF7043';
-        ctx.font = 'bold 18px Nunito';
-        ctx.textAlign = 'center';
-        ctx.fillText(
-            'СЮДА НЕЛЬЗЯ ❌',
-            this.whirlpool.x,
-            this.whirlpool.y + this.whirlpool.radius + 26
+    // ✨ мерцание
+    ctx.globalAlpha = 0.6;
+    ctx.fillStyle = '#E0F7FA';
+    for (let i = 0; i < 6; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const r = Math.random() * radius * 0.8;
+        ctx.beginPath();
+        ctx.arc(
+            Math.cos(a) * r,
+            Math.sin(a) * r,
+            1.5,
+            0,
+            Math.PI * 2
         );
-        ctx.save();
-}
-
-
+        ctx.fill();
+    }
+    ctx.globalAlpha = 1;
 
     ctx.restore();
 }
+
 
     drawGameOverScreen() {
         // Фон
