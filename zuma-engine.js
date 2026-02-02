@@ -816,7 +816,7 @@ levelUp() {
     this.lives = Math.min(this.lives + 1, 10); // Добавляем жизнь, но не больше 10
     
     // Увеличиваем скорость
-    this.chain.speed = 0.25 + (this.level * 0.015);
+    this.chain.speed = 0.15 + (this.level * 0.015);
     
     // Создаем новую цепочку
     this.createChain();
