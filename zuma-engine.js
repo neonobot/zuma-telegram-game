@@ -898,9 +898,7 @@ drawBug(x, y, r, ball) {
         frameSize * scale, frameSize * scale
     );
 }
-
-
-}    
+   
 drawBallSprite(x, y, r, colorIndex = 0) {
     if (!ASSETS.ready) return;
 
