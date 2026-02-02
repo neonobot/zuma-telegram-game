@@ -898,6 +898,36 @@ drawBug(x, y, r, ball) {
         frameSize * scale, frameSize * scale
     );
 }
+    drawShinyBall(x, y, r, color = '#4af') {
+    const ctx = this.ctx;
+
+    // основной шар
+    const grad = ctx.createRadialGradient(
+        x - r * 0.3, y - r * 0.3, r * 0.2,
+        x, y, r
+    );
+    grad.addColorStop(0, '#fff');
+    grad.addColorStop(0.3, color);
+    grad.addColorStop(1, '#000');
+
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+
+    // блик
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.beginPath();
+    ctx.arc(
+        x - r * 0.35,
+        y - r * 0.35,
+        r * 0.25,
+        0,
+        Math.PI * 2
+    );
+    ctx.fill();
+}
+
    
 drawBallSprite(x, y, r, colorIndex = 0) {
     if (!ASSETS.ready) return;
