@@ -780,7 +780,7 @@ checkForMatches(startIndex) {
     
     // Проверяем вправо
     for (let i = startIndex + 1; i < this.chain.balls.length; i++) {
-        if (this.chain.balls[i].color === color) {
+        if (this.chain.balls[i].colorIndex === color) {
             matches.push(i);
         } else break;
     }
