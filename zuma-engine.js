@@ -939,16 +939,20 @@ drawBug(x, y, r, ball) {
 drawBallSprite(x, y, r, colorIndex = 0) {
     if (!ASSETS.ready) return;
 
-    const size = 96; // размер одного шарика в спрайте
-    const scale = (r * 2) / size; // масштаб под radius
+    const cols = 6; // количество шариков в спрайте по горизонтали
+    const frameWidth = ASSETS.balls.width / cols;
+    const frameHeight = ASSETS.balls.height;
+
+    const scale = (r * 2) / frameWidth;
 
     this.ctx.drawImage(
         ASSETS.balls,
-        colorIndex * size, 0, size, size, // вырезаем нужный шарик
-        x - r, y - r,                      // позиция на canvas
-        size * scale, size * scale         // размер на canvas
+        colorIndex * frameWidth, 0, frameWidth, frameHeight,
+        x - r, y - r,
+        frameWidth * scale, frameHeight * scale
     );
 }
+
 
 
 drawProjectiles() {
