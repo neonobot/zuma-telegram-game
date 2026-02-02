@@ -899,7 +899,7 @@ drawBug(x, y, r, ball) {
     ball.bugFrame += 0.15;
     const frame = Math.floor(ball.bugFrame) % totalFrames;
 
-    const scale = (r * 2) / frameSize;
+    const scale = (r * 200) / frameSize;
 
     this.ctx.drawImage(
         ASSETS.bug,
@@ -943,7 +943,7 @@ drawBallSprite(x, y, r, colorIndex = 0) {
     if (!ASSETS.ready) return;
 
     const size = 96;
-    const scale = (r * 20) / size;
+    const scale = (r * 200) / size;
 
     this.ctx.drawImage(
         ASSETS.balls,
