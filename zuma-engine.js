@@ -164,8 +164,64 @@ this.currentTutorialStep = 0;
         // Создаем цепочку
         this.createChain();
         
+        this.isSucking = false;
+        this.suckTimer = 0;
+
         console.log('Game reset');
     }
+    startWhirlpoolSuck() {
+    if (this.isSucking) return;
+
+    this.isSucking = true;
+    this.suckTimer = 0;
+
+    // фиксируем текущие координаты
+    for (const ball of this.chain.balls) {
+        const p = this.getPathPoint(ball.position);
+        ball.suck = {
+            angle: Math.atan2(p.y - this.whirlpool.y, p.x - this.whirlpool.x),
+            radius: Math.hypot(p.x - this.whirlpool.x, p.y - this.whirlpool.y)
+        };
+    }
+}
+    updateWhirlpoolSuck(delta) {
+    const speed = 0.04 * delta;
+
+    for (let i = this.chain.balls.length - 1; i >= 0; i--) {
+        const ball = this.chain.balls[i];
+
+        ball.suck.angle += 0.25 * delta;
+        ball.suck.radius -= speed * 30;
+
+        const x =
+            this.whirlpool.x +
+            Math.cos(ball.suck.angle) * ball.suck.radius;
+        const y =
+            this.whirlpool.y +
+            Math.sin(ball.suck.angle) * ball.suck.radius;
+
+        ball.renderX = x;
+        ball.renderY = y;
+
+        if (ball.suck.radius <= 6) {
+            this.chain.balls.splice(i, 1);
+        }
+    }
+
+    this.suckTimer += delta;
+
+    if (this.chain.balls.length === 0 && this.suckTimer > 20) {
+        this.finishLose();
+    }
+}
+    finishLose() {
+    this.isSucking = false;
+    this.state = GAME_STATE.LOSE;
+    this.gameOver = true;
+}
+
+
+
     
     // Генерация КРУГЛОЙ спирали в виде ручейка
     generateRoundSpiralPath() {
@@ -427,6 +483,10 @@ updateEffects(delta) {
     }
     
     updateChain(delta) {
+        if (this.isSucking) {
+            this.updateWhirlpoolSuck(delta);
+            return;
+        }
         if (this.chain.isAssembling) {
             this.chain.assembleProgress += 0.01 * delta;
 
@@ -510,7 +570,7 @@ updateEffects(delta) {
     }
 }
     triggerLose() {
-    if (this.gameOver) return;
+    if (this.gameOver || this.isSucking) return;
 
     this.lives--;
     this.lastLifeRestore = Date.now();
@@ -523,9 +583,9 @@ updateEffects(delta) {
         })
     );
 
-    this.state = GAME_STATE.LOSE;
-    this.gameOver = true;
+    this.startWhirlpoolSuck();
 }
+
 
 
 
@@ -727,13 +787,12 @@ levelUp() {
 drawChain() {
     for (let i = 0; i < this.chain.balls.length; i++) {
         const ball = this.chain.balls[i];
-        const point = this.getPathPoint(ball.position);
+        const x = ball.renderX ?? this.getPathPoint(ball.position).x;
+        const y = ball.renderY ?? this.getPathPoint(ball.position).y;
+
 
         const wobbleX = Math.sin(ball.wobble) * 2;
         const wobbleY = Math.cos(ball.wobble) * 2;
-
-        const x = point.x + wobbleX;
-        const y = point.y + wobbleY;
 
         // 🐞 ЕСЛИ ЭТО ЖУЧОК — РИСУЕМ ЕГО
         if (ball.type === 'bug') {
