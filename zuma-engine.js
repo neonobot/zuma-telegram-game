@@ -38,20 +38,24 @@ const BALL_SPACING = (BALL_RADIUS * 2) * 0.78; // 🔥 как в оригина�
 
 class ZumaGame {
     constructor(canvasId) {
-        console.log('Creating game instance...');
-        
-        this.canvas = document.getElementById(canvasId);
-        if (!this.canvas) {
-            throw new Error('Canvas not found!');
-        }
-        this.resize();
-        window.addEventListener('resize', () => this.resize());
+    console.log('Creating game instance...');
 
-        this.ctx = this.canvas.getContext('2d');
-        this.width = this.canvas.width;
-        this.height = this.canvas.height;
+    this.canvas = document.getElementById(canvasId);
+    if (!this.canvas) {
+        throw new Error('Canvas not found!');
+    }
 
-        this.state = GAME_STATE.PLAY;
+    // ✅ сначала контекст
+    this.ctx = this.canvas.getContext('2d');
+
+    // ✅ потом resize
+    this.resize();
+    window.addEventListener('resize', () => this.resize());
+
+    this.width = 800;
+    this.height = 600;
+
+    this.state = GAME_STATE.PLAY;
         
         this.tutorialSteps = [
     {
@@ -261,6 +265,8 @@ this.currentTutorialStep = 0;
     return path;
 }
     resize() {
+    if (!this.ctx) return; // 🛡 защита
+
     const dpr = window.devicePixelRatio || 1;
 
     const baseW = 800;
@@ -282,6 +288,7 @@ this.currentTutorialStep = 0;
     this.width = baseW;
     this.height = baseH;
 }
+
 
 
 
