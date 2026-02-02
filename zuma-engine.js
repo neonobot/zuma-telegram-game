@@ -32,7 +32,7 @@ const GAME_STATE = {
     LOSE: 'LOSE'
 };
 const BALL_RADIUS = 20;
-const BALL_SPACING = 0.007;
+const BALL_SPACING = 0.008;
 
 
 
@@ -119,7 +119,7 @@ this.currentTutorialStep = 0;
             path: this.generateRoundSpiralPath(),
 
             // ⬇️ ВАЖНО
-            speed: this.isTutorial ? 0.04 : 0.18 + this.level * 0.001,
+            speed: this.isTutorial ? 0.08 : 0.18 + this.level * 0.001,
 
             headPosition: 0,
             isAssembling: true,
