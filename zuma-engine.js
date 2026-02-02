@@ -196,7 +196,7 @@ this.currentTutorialStep = 0;
 }
     updateWhirlpoolSuck(delta) {
     this.whirlpool.angle += 0.18 * delta;
-    const speed = 0.04 * delta;
+    const speed = 0.05 * delta;
 
     for (let i = this.chain.balls.length - 1; i >= 0; i--) {
         const ball = this.chain.balls[i];
