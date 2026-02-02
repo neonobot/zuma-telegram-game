@@ -31,6 +31,8 @@ const GAME_STATE = {
     WIN: 'WIN',
     LOSE: 'LOSE'
 };
+const BALL_SPACING = 0.02;
+
 
 class ZumaGame {
     constructor(canvasId) {
@@ -134,12 +136,16 @@ this.currentTutorialStep = 0;
             smile: 0 // Для анимации улыбки
         };
 
+        const losePoint = this.getPathPoint(LOSE_POSITION);
+
         this.whirlpool = {
-            x: this.width / 2,
-            y: this.height / 2,
+            x: losePoint.x,
+            y: losePoint.y,
             radius: 42,
-            angle: 0
+            angle: 0,
+            pulse: 0
         };
+
         // Цепочка шаров - большая круглая спираль
         this.chain = {
             balls: [],
@@ -394,7 +400,7 @@ updateEffects(delta) {
     createChain() {
         this.chain.balls = [];
         const ballCount = 18 + this.level * 2;
-        const spacing = 0.028; // Расстояние между шарами
+        const spacing = BALL_SPACING; // Расстояние между шарами
         
         for (let i = 0; i < ballCount; i++) {
             const position = this.chain.assembleProgress - i * spacing;
@@ -447,13 +453,16 @@ updateEffects(delta) {
         this.gameLoopId = requestAnimationFrame(gameLoop);
     }
     updateWhirlpool(delta) {
-    // постоянное вращение
-    this.whirlpool.angle += 0.06 * delta;
+    const p = this.getPathPoint(LOSE_POSITION);
 
-    // дыхание (пульсация)
+    this.whirlpool.x = p.x;
+    this.whirlpool.y = p.y;
+
+    this.whirlpool.angle += 0.06 * delta;
     this.whirlpool.pulse =
         Math.sin(Date.now() * 0.004) * 6;
 }
+
 
     update(delta) {
     if (this.state !== GAME_STATE.PLAY) return;
@@ -498,7 +507,7 @@ updateEffects(delta) {
             this.chain.assembleProgress += 0.01 * delta;
 
         for (let i = 0; i < this.chain.balls.length; i++) {
-        const target = this.chain.assembleProgress - i * 0.03;
+        const target = this.chain.assembleProgress - i * BALL_SPACING;
         this.chain.balls[i].position += (target - this.chain.balls[i].position) * 0.15;
     }
 
@@ -527,7 +536,9 @@ updateEffects(delta) {
             if (i === 0) {
                 ball.position = this.chain.headPosition;
             } else {
-                const targetPos = this.chain.balls[i-1].position - 0.03;
+                const targetPos =
+                    this.chain.balls[i - 1].position - BALL_SPACING;
+
                 const diff = targetPos - ball.position;
                 
                 if (Math.abs(diff) > 0.001) {
