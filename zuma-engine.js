@@ -32,7 +32,7 @@ const GAME_STATE = {
     LOSE: 'LOSE'
 };
 const BALL_RADIUS = 20;
-const BALL_SPACING = (BALL_RADIUS * 2) * 0.78; // 🔥 как в оригинальной Zuma
+const BALL_SPACING = 0.012; // 🔥 как в оригинальной Zuma
 
 
 
@@ -526,49 +526,65 @@ updateEffects(delta) {
         return;
     }
 
-    // 🧲 ФАЗА СБОРКИ
+    /* ===============================
+       1. ФАЗА СБОРКИ (СТАРТ)
+    =============================== */
     if (this.chain.isAssembling) {
-        this.chain.assembleProgress += 0.004 * delta;
-
-        let prevPos = this.chain.assembleProgress;
+        this.chain.assembleProgress += 0.04 * delta; // ⬅ быстрее
 
         for (let i = 0; i < this.chain.balls.length; i++) {
-            const ball = this.chain.balls[i];
-            const target = prevPos - BALL_SPACING;
+            const target =
+                this.chain.assembleProgress -
+                i * BALL_SPACING;
 
-            ball.position += (target - ball.position) * 0.25;
-            prevPos = ball.position;
+            this.chain.balls[i].position +=
+                (target - this.chain.balls[i].position) * 0.25;
         }
 
+        // ✅ ВАЖНО: гарантированный выход
         if (this.chain.assembleProgress >= 0) {
             this.chain.isAssembling = false;
-            this.chain.headPosition = this.chain.balls[0].position;
+            this.chain.headPosition = 0;
         }
+
         return;
     }
 
-    // ⏸ заморозка
+    /* ===============================
+       2. ЗАМОРОЗКА ПОСЛЕ ВЗРЫВА
+    =============================== */
     if (this.chain.freeze > 0) {
         this.chain.freeze--;
         return;
     }
 
-    // ▶ движение головы
-    this.chain.headPosition += this.chain.speed * delta * 0.002;
+    /* ===============================
+       3. ОСНОВНОЕ ДВИЖЕНИЕ (ZUMA)
+    =============================== */
 
-    this.chain.balls[0].position = this.chain.headPosition;
+    const speed =
+        (this.chain.speed / 200) * delta;
 
-    // ▶ подтягивание остальных шаров
-    for (let i = 1; i < this.chain.balls.length; i++) {
-        const prev = this.chain.balls[i - 1];
+    this.chain.headPosition += speed;
+
+    for (let i = 0; i < this.chain.balls.length; i++) {
         const ball = this.chain.balls[i];
 
-        const target = prev.position - BALL_SPACING;
-        ball.position += (target - ball.position) * 0.35;
-    }
+        if (i === 0) {
+            ball.position = this.chain.headPosition;
+        } else {
+            const prev = this.chain.balls[i - 1];
+            const target = prev.position - BALL_SPACING;
 
-    // ❌ проигрыш
-    for (const ball of this.chain.balls) {
+            const diff = target - ball.position;
+
+            // 🔥 Zuma-style compression
+            ball.position += diff * 0.35;
+        }
+
+        ball.wobble += ball.wobbleSpeed * delta;
+
+        // проигрыш
         if (ball.position >= LOSE_POSITION) {
             this.triggerLose();
             return;
@@ -678,7 +694,7 @@ checkProjectileCollision(proj) {
         const dist = Math.hypot(dx, dy);
 
         // 🔥 плотное попадание как в Zuma
-        if (dist < proj.radius + ball.radius + 2) {
+        if (dist < proj.radius + ball.radius + 4) {
             return { ball, index: i, point: p };
         }
     }
