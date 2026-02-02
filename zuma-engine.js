@@ -32,7 +32,10 @@ const GAME_STATE = {
     LOSE: 'LOSE'
 };
 const BALL_RADIUS = 20;
-const BALL_SPACING = 0.012; // 🔥 как в оригинальной Zuma
+const BALL_SPACING = 0.011;
+chain.speed       = 0.12 (tutorial) → 0.22 (late game)
+speed coeff       = 0.002
+follow strength   = 0.22
 
 
 
@@ -117,17 +120,15 @@ this.currentTutorialStep = 0;
         this.chain = {
             balls: [],
             path: this.generateRoundSpiralPath(),
-            speed: this.isTutorial
-                ? 0.12
-                : 0.25 + (this.level * 0.015),
-            headPosition: 0,
 
+            // ⬇️ ВАЖНО
+            speed: this.isTutorial ? 0.12 : 0.18 + this.level * 0.01,
+
+            headPosition: 0,
             isAssembling: true,
             assembleProgress: -0.25,
             freeze: 40
         };
-
-
 
         
         // Лягушка - теперь в ЦЕНТРЕ!
@@ -562,9 +563,7 @@ updateEffects(delta) {
        3. ОСНОВНОЕ ДВИЖЕНИЕ (ZUMA)
     =============================== */
 
-    const speed =
-        (this.chain.speed / 200) * delta;
-
+    const speed = this.chain.speed * delta * 0.002;
     this.chain.headPosition += speed;
 
     for (let i = 0; i < this.chain.balls.length; i++) {
@@ -579,7 +578,7 @@ updateEffects(delta) {
             const diff = target - ball.position;
 
             // 🔥 Zuma-style compression
-            ball.position += diff * 0.35;
+            ball.position += diff * 0.22;
         }
 
         ball.wobble += ball.wobbleSpeed * delta;
