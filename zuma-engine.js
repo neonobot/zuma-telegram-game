@@ -32,7 +32,7 @@ const GAME_STATE = {
     LOSE: 'LOSE'
 };
 const BALL_RADIUS = 20;
-const BALL_SPACING = 0.011;
+const BALL_SPACING = 0.01;
 
 
 
