@@ -119,7 +119,7 @@ this.currentTutorialStep = 0;
             path: this.generateRoundSpiralPath(),
 
             // ⬇️ ВАЖНО
-            speed: this.isTutorial ? 0.06 : 0.18 + this.level * 0.01,
+            speed: this.isTutorial ? 0.04 : 0.18 + this.level * 0.001,
 
             headPosition: 0,
             isAssembling: true,
@@ -154,7 +154,7 @@ this.currentTutorialStep = 0;
         this.chain = {
             balls: [],
             path: this.generateRoundSpiralPath(),
-            speed: 0.25 + (this.level * 0.015),
+            speed: 0.09 + (this.level * 0.015),
             headPosition: 0,
 
             // 🧲 фаза сборки
@@ -811,7 +811,7 @@ levelUp() {
     this.level++;
     this.lives = Math.min(this.lives + 1, 10); // Добавляем жизнь, но не больше 10
     
-    // Увеличиваем скорость
+    // Увеличиваем 
     this.chain.speed = 0.15 + (this.level * 0.015);
     
     // Создаем новую цепочку
