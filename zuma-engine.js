@@ -943,7 +943,7 @@ drawBallSprite(x, y, r, colorIndex = 0) {
     if (!ASSETS.ready) return;
 
     const size = 96;
-    const scale = (r * 2) / size;
+    const scale = (r * 20) / size;
 
     this.ctx.drawImage(
         ASSETS.balls,
