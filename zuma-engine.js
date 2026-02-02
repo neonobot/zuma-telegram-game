@@ -27,9 +27,9 @@ const ASSETS = {
     ready: false
 };
 
-ASSETS.balls.src = 'assets/images/balls.png';
-ASSETS.bug.src = 'assets/images/bug.png';
-ASSETS.whirlpool.src = 'assets/images/whirlpool.png';
+ASSETS.balls.src = '.assets/images/balls.png';
+ASSETS.bug.src = '.assets/images/bug.png';
+ASSETS.whirlpool.src = '.assets/images/whirlpool.png';
 
 let assetsLoaded = 0;
 Object.values(ASSETS).forEach(img => {
