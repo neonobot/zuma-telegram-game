@@ -144,9 +144,4 @@ canvas.addEventListener('touchend', () => {
         game.shoot();
     }
 });
-canvas.addEventListener('pointerdown', (e) => {
-    const rect = canvas.getBoundingClientRect();
-    game.frog.targetX = (e.clientX - rect.left) * (canvas.width / rect.width);
-    game.frog.targetY = (e.clientY - rect.top) * (canvas.height / rect.height);
-});
 
