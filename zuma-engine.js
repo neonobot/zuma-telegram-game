@@ -90,10 +90,6 @@ class ZumaGame {
     constructor(canvasId) {
     console.log('Creating game instance...');
         
-    this.frog.targetX = this.frog.x;
-    this.frog.targetY = this.frog.y;
-
-
     this.canvas = document.getElementById(canvasId);
     if (!this.canvas) {
         throw new Error('Canvas not found!');
@@ -193,6 +189,8 @@ this.currentTutorialStep = 0;
             mouthOpen: false,
             smile: 0 // Для анимации улыбки
         };
+        this.frog.targetX = this.frog.x;
+        this.frog.targetY = this.frog.y;
 
         const losePoint = this.getPathPoint(LOSE_POSITION);
 
