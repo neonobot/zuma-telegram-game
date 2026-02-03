@@ -112,6 +112,7 @@ function updateFrogAim(clientX, clientY) {
     game.frog.angle = Math.max(-170, Math.min(170, game.frog.angle));
 }
 
+
 // мышь
 canvas.addEventListener('mousemove', e => {
     updateFrogAim(e.clientX, e.clientY);
@@ -143,7 +144,3 @@ canvas.addEventListener('touchend', () => {
         game.shoot();
     }
 });
-
-game = new ZumaGame('gameCanvas');
-game.lives = loadLives();
-game.startGame();
