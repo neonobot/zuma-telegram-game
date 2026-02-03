@@ -1069,7 +1069,7 @@ drawEffects() {
 }
 
 drawNextBall() {
-    if (!this.frog.nextBall) return;
+    if (!Number.isInteger(this.frog.nextBall)) return;
 
     const x = this.width - 70;
     const y = 60;
@@ -1471,24 +1471,30 @@ if (this.frog.nextBall) {
     // как в предыдущей версии, но используют новую графику
     
     shoot() {
-    if (!this.frog.nextBall && this.frog.nextBall !== 0) return;
+    // ❗ 0 — валидный цвет
+    if (!Number.isInteger(this.frog.nextBall)) return;
 
-    const colorIndex = this.frog.nextBall ?? 0;
+    const angleRad = this.frog.angle * Math.PI / 180;
+    const speed = 14;
+
+    const colorIndex = this.frog.nextBall;
 
     this.projectiles.push({
         x: this.frog.x,
         y: this.frog.y,
-        angle: this.frog.angle,
-        speed: 14,
+
+        vx: Math.cos(angleRad) * speed,
+        vy: Math.sin(angleRad) * speed,
+
         radius: BALL_RADIUS,
-        colorIndex: colorIndex
+        colorIndex,
+
+        trail: [],
+        life: 120
     });
 
-    // сразу генерируем следующий
+    // следующий шар
     this.frog.nextBall = this.randomColorIndex();
-}
-    randomColorIndex() {
-    return Math.floor(Math.random() * this.colors.length);
 }
 
 
