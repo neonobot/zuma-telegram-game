@@ -1496,6 +1496,8 @@ if (this.frog.nextBall) {
 
     // следующий шар
     this.frog.nextBall = this.randomColorIndex();
+    console.log('🎨 nextBall =', this.frog.nextBall);
+
 }
     randomColorIndex() {
     return Math.floor(Math.random() * BALL_COLORS_COUNT);
