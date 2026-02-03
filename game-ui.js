@@ -1,24 +1,10 @@
-// game-ui.js — UI + input + state bridge (FINAL)
+// game-ui.js — SAFE INIT VERSION
 
 const LIFE_RESTORE_TIME = 10 * 60 * 1000;
 const MAX_LIVES = 3;
 
 let game = null;
 let canvas = null;
-
-window.addEventListener('DOMContentLoaded', () => {
-    canvas = document.getElementById('gameCanvas');
-
-    if (!canvas) {
-        console.error('Canvas not found in DOM');
-        return;
-    }
-
-    game = new ZumaGame(canvas);
-    game.lives = loadLives();
-    game.start();
-});
-
 
 /* =========================
    LIVES STORAGE
@@ -73,7 +59,6 @@ function updateFrogAim(clientX, clientY) {
 
     let angle = Math.atan2(dy, dx);
 
-    // Ограничение поворота (как в Zuma)
     const MAX = Math.PI * 0.95;
     angle = Math.max(-MAX, Math.min(MAX, angle));
 
@@ -106,66 +91,66 @@ function handleUIClick(clientX, clientY) {
 }
 
 /* =========================
-   MOUSE INPUT
+   INIT AFTER DOM READY
 ========================= */
 
-canvas.addEventListener('mousemove', e => {
-    updateFrogAim(e.clientX, e.clientY);
-});
+window.addEventListener('DOMContentLoaded', () => {
+    canvas = document.getElementById('gameCanvas');
 
-canvas.addEventListener('mousedown', e => {
-    updateFrogAim(e.clientX, e.clientY);
-});
-
-canvas.addEventListener('mouseup', e => {
-    if (handleUIClick(e.clientX, e.clientY)) return;
-
-    if (game && game.state === 'PLAY') {
-        game.shoot();
+    if (!canvas) {
+        console.error('Canvas not found in DOM');
+        return;
     }
-});
 
-/* =========================
-   TOUCH INPUT (MOBILE)
-========================= */
+    // ===== MOUSE =====
+    canvas.addEventListener('mousemove', e => {
+        updateFrogAim(e.clientX, e.clientY);
+    });
 
-canvas.addEventListener(
-    'touchstart',
-    e => {
-        const t = e.touches[0];
-        updateFrogAim(t.clientX, t.clientY);
-    },
-    { passive: false }
-);
+    canvas.addEventListener('mousedown', e => {
+        updateFrogAim(e.clientX, e.clientY);
+    });
 
-canvas.addEventListener(
-    'touchmove',
-    e => {
-        e.preventDefault();
-        const t = e.touches[0];
-        updateFrogAim(t.clientX, t.clientY);
-    },
-    { passive: false }
-);
+    canvas.addEventListener('mouseup', e => {
+        if (handleUIClick(e.clientX, e.clientY)) return;
 
-canvas.addEventListener(
-    'touchend',
-    e => {
         if (game && game.state === 'PLAY') {
             game.shoot();
         }
-    },
-    { passive: false }
-);
+    });
 
-/* =========================
-   GAME INIT
-========================= */
+    // ===== TOUCH =====
+    canvas.addEventListener(
+        'touchstart',
+        e => {
+            const t = e.touches[0];
+            updateFrogAim(t.clientX, t.clientY);
+        },
+        { passive: false }
+    );
 
-function startGameInstance() {
+    canvas.addEventListener(
+        'touchmove',
+        e => {
+            e.preventDefault();
+            const t = e.touches[0];
+            updateFrogAim(t.clientX, t.clientY);
+        },
+        { passive: false }
+    );
+
+    canvas.addEventListener(
+        'touchend',
+        () => {
+            if (game && game.state === 'PLAY') {
+                game.shoot();
+            }
+        },
+        { passive: false }
+    );
+
+    // ===== GAME START =====
     game = new ZumaGame(canvas);
     game.lives = loadLives();
     game.start();
-}
-
-startGameInstance();
+});
