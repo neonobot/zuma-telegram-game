@@ -192,7 +192,7 @@ this.currentTutorialStep = 0;
         this.frog = {
             x: this.width / 2,
             y: this.height / 2, // Центр экрана!
-            angle: angle: -Math.PI / 2,
+            angle: -Math.PI / 2,
             nextBall: this.getNextBallColor(),
             state: 'idle',
             blinkTimer: 0,
