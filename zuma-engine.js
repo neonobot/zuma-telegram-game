@@ -110,10 +110,11 @@ class ZumaGame {
     this.frog = {
         x: this.width / 2,
         y: this.height / 2,
-        angle: -Math.PI / 2,   // смотрит вверх
-        shootOffset: 42,       // расстояние до рта
-        nextBall: this.getNextBallColor()
+        angle: -Math.PI / 2,
+        shootOffset: 42,
+        nextBall: null
     };
+
 
         
         this.tutorialSteps = [
@@ -191,7 +192,7 @@ this.currentTutorialStep = 0;
         this.frog = {
             x: this.width / 2,
             y: this.height / 2, // Центр экрана!
-            angle: -90,
+            angle: angle: -Math.PI / 2,
             nextBall: this.getNextBallColor(),
             state: 'idle',
             blinkTimer: 0,
@@ -232,6 +233,8 @@ this.currentTutorialStep = 0;
         
         // Создаем цепочку
         this.createChain();
+        this.frog.nextBall = this.getNextBallColor();
+
         
         this.isSucking = false;
         this.suckTimer = 0;
@@ -254,20 +257,23 @@ this.currentTutorialStep = 0;
     }
 }
     getNextBallColor() {
-    // собираем все цвета в цепочке кроме жучка
+    if (!this.chain || !this.chain.balls || this.chain.balls.length === 0) {
+        return Math.floor(Math.random() * this.colors.length);
+    }
+
     const availableColors = this.chain.balls
         .filter(b => b.type !== 'bug')
         .map(b => b.colorIndex);
 
     if (availableColors.length === 0) {
-        // если шаров кроме жучка нет, возвращаем любой цвет
         return Math.floor(Math.random() * this.colors.length);
     }
 
-    // выбираем случайный из оставшихся
-    const randomIndex = Math.floor(Math.random() * availableColors.length);
-    return availableColors[randomIndex];
+    return availableColors[
+        Math.floor(Math.random() * availableColors.length)
+    ];
 }
+
 
     updateWhirlpoolSuck(delta) {
     this.whirlpool.angle += 0.18 * delta;
@@ -1143,7 +1149,7 @@ drawNextBall() {
 drawAim() {
     if (this.gameOver || this.isPaused || this.state !== GAME_STATE.PLAY) return;
 
-    const angle = this.frog.angle * Math.PI / 180;
+    const angle = this.frog.angle;
 
     const startX = this.frog.x;
     const startY = this.frog.y;
