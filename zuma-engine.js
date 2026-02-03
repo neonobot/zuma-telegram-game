@@ -1,4 +1,4 @@
-// zuma-engine.js - Версия 3.0 с улучшенной графикой
+// zuma-engine.js - Версия 4.0 с улучшенной графикой
 console.log('Zuma Frog Game Engine loading...');
 const ART = {
     colors: {
@@ -20,6 +20,58 @@ const ART = {
 
     shadowColor: 'rgba(0, 40, 30, 0.25)'
 };
+const ASSETS = {
+    balls: new Image(),
+    bug: new Image(),
+    whirlpool: new Image(),
+    ready: false
+};
+
+ASSETS.balls.src = './assets/images/balls.png';
+ASSETS.bug.src = './assets/images/bug.png';
+ASSETS.whirlpool.src = './assets/images/whirlpool.png';
+
+const BALL_SPRITE = {
+    frameWidth: 96,
+    frameHeight: 96,
+    cols: 0,
+    rows: 0,
+    ready: false
+};
+
+
+let assetsLoaded = 0;
+Object.values(ASSETS).forEach(img => {
+    if (!(img instanceof Image)) return;
+    img.onload = () => {
+        assetsLoaded++;
+        if (assetsLoaded === 3) {
+            ASSETS.ready = true;
+            console.log('✅ All assets loaded');
+        }
+        if (ASSETS.balls.complete) {
+    BALL_SPRITE.cols = Math.floor(
+        ASSETS.balls.width / BALL_SPRITE.frameWidth
+    );
+    BALL_SPRITE.rows = Math.floor(
+        ASSETS.balls.height / BALL_SPRITE.frameHeight
+    );
+    BALL_SPRITE.ready = true;
+
+    console.log(
+        '🎨 Ball sprite sheet:',
+        BALL_SPRITE.cols,
+        'x',
+        BALL_SPRITE.rows
+    );
+}
+
+    };
+});
+
+
+const WIN_CONDITION_LAST_BUG = true;
+const LOSE_POSITION = 0.95;
 
 const GAME_STATE = {
     MENU: 'MENU',
@@ -28,25 +80,60 @@ const GAME_STATE = {
     WIN: 'WIN',
     LOSE: 'LOSE'
 };
+const BALL_RADIUS = 20;
+const BALL_SPACING = 0.008;
+const BALL_COLORS_COUNT = 5;
+
+
 
 class ZumaGame {
     constructor(canvasId) {
-        console.log('Creating game instance...');
-        
-        this.canvas = document.getElementById(canvasId);
-        if (!this.canvas) {
-            throw new Error('Canvas not found!');
-        }
-        this.resize();
-        window.addEventListener('resize', () => this.resize());
+    console.log('Creating game instance...');
 
-        this.ctx = this.canvas.getContext('2d');
-        this.width = this.canvas.width;
-        this.height = this.canvas.height;
+    this.canvas = document.getElementById(canvasId);
+    if (!this.canvas) {
+        throw new Error('Canvas not found!');
+    }
 
-        this.state = GAME_STATE.MENU
+    // ✅ сначала контекст
+    this.ctx = this.canvas.getContext('2d');
+
+    // ✅ потом resize
+    this.resize();
+    window.addEventListener('resize', () => this.resize());
+
+    this.width = 800;
+    this.height = 600;
+
+    this.state = GAME_STATE.PLAY;
         
-        
+        this.tutorialSteps = [
+    {
+        text: 'Проведи пальцем,\nчтобы прицелиться',
+        shown: false,
+        condition: () => this.frog.angle !== -90
+    },
+    {
+        text: 'Отпусти — шар полетит',
+        shown: false,
+        condition: () => this.projectiles.length > 0
+    },
+    {
+        text: 'Собери 3 одинаковых\nшара подряд',
+        shown: false,
+        condition: () => this.score > 0
+    },
+    {
+        text: 'Жучок — последний!\nУбери его, чтобы победить 🐞',
+        shown: false,
+        condition: () =>
+            this.chain.balls.length === 1 &&
+            this.chain.balls[0].type === 'bug'
+    }
+];
+
+this.currentTutorialStep = 0;
+
         // Пастельные цвета шаров
         this.colors = [
             '#FFD1DC', // Розовый
@@ -76,32 +163,45 @@ class ZumaGame {
         this.lastTime = 0;
         this.deltaTime = 0;
         this.gameLoopId = null;
+        this.isTutorial = this.level === 1;
+        this.chain = {
+            balls: [],
+            path: this.generateRoundSpiralPath(),
+
+            // ⬇️ ВАЖНО
+            speed: this.isTutorial ? 0.08 : 0.18 + this.level * 0.001,
+
+            headPosition: 0,
+            isAssembling: true,
+            assembleProgress: -0.25,
+            freeze: 40
+        };
+
         
         // Лягушка - теперь в ЦЕНТРЕ!
         this.frog = {
             x: this.width / 2,
             y: this.height / 2, // Центр экрана!
             angle: -90,
-            nextBall: this.getRandomColor(),
+            nextBall: this.getNextBallColor(),
             state: 'idle',
             blinkTimer: 0,
             mouthOpen: false,
             smile: 0 // Для анимации улыбки
         };
 
+        const losePoint = this.getPathPoint(LOSE_POSITION);
+
         this.whirlpool = {
-            x: this.width / 2,
-            y: this.height / 2,
+            x: losePoint.x,
+            y: losePoint.y,
             radius: 42,
-            angle: 0
+            angle: 0,
+            pulse: 0
         };
-        // Цепочка шаров - большая круглая спираль
-        this.chain = {
-            balls: [],
-            path: this.generateRoundSpiralPath(), // Новая круглая спираль
-            speed: 0.25 + (this.level * 0.015), // Еще медленнее
-            headPosition: 0
-        };
+
+//тут
+
         
         // Проектили
         this.projectiles = [];
@@ -114,8 +214,81 @@ class ZumaGame {
         // Создаем цепочку
         this.createChain();
         
+        this.isSucking = false;
+        this.suckTimer = 0;
+
         console.log('Game reset');
     }
+    startWhirlpoolSuck() {
+    if (this.isSucking) return;
+
+    this.isSucking = true;
+    this.suckTimer = 0;
+
+    // фиксируем текущие координаты
+    for (const ball of this.chain.balls) {
+        const p = this.getPathPoint(ball.position);
+        ball.suck = {
+            angle: Math.atan2(p.y - this.whirlpool.y, p.x - this.whirlpool.x),
+            radius: Math.hypot(p.x - this.whirlpool.x, p.y - this.whirlpool.y)
+        };
+    }
+}
+    getNextBallColor() {
+    // собираем все цвета в цепочке кроме жучка
+    const availableColors = this.chain.balls
+        .filter(b => b.type !== 'bug')
+        .map(b => b.colorIndex);
+
+    if (availableColors.length === 0) {
+        // если шаров кроме жучка нет, возвращаем любой цвет
+        return Math.floor(Math.random() * this.colors.length);
+    }
+
+    // выбираем случайный из оставшихся
+    const randomIndex = Math.floor(Math.random() * availableColors.length);
+    return availableColors[randomIndex];
+}
+
+    updateWhirlpoolSuck(delta) {
+    this.whirlpool.angle += 0.18 * delta;
+    const speed = 0.05 * delta;
+
+    for (let i = this.chain.balls.length - 1; i >= 0; i--) {
+        const ball = this.chain.balls[i];
+
+        ball.suck.angle += 0.25 * delta;
+        ball.suck.radius -= speed * 30;
+
+        const x =
+            this.whirlpool.x +
+            Math.cos(ball.suck.angle) * ball.suck.radius;
+        const y =
+            this.whirlpool.y +
+            Math.sin(ball.suck.angle) * ball.suck.radius;
+
+        ball.renderX = x;
+        ball.renderY = y;
+
+        if (ball.suck.radius <= 6) {
+            this.chain.balls.splice(i, 1);
+        }
+    }
+
+    this.suckTimer += delta;
+
+    if (this.chain.balls.length === 0 && this.suckTimer > 20) {
+        this.finishLose();
+    }
+}
+    finishLose() {
+    this.isSucking = false;
+    this.state = GAME_STATE.LOSE;
+    this.gameOver = true;
+}
+
+
+
     
     // Генерация КРУГЛОЙ спирали в виде ручейка
     generateRoundSpiralPath() {
@@ -146,14 +319,31 @@ class ZumaGame {
     return path;
 }
     resize() {
+    if (!this.ctx) return; // 🛡 защита
+
+    const dpr = window.devicePixelRatio || 1;
+
+    const baseW = 800;
+    const baseH = 600;
+
     const scale = Math.min(
-        window.innerWidth / 800,
-        window.innerHeight / 600
+        window.innerWidth / baseW,
+        window.innerHeight / baseH
     );
 
-    this.canvas.style.width = `${800 * scale}px`;
-    this.canvas.style.height = `${600 * scale}px`;
+    this.canvas.width = baseW * dpr;
+    this.canvas.height = baseH * dpr;
+
+    this.canvas.style.width = `${baseW * scale}px`;
+    this.canvas.style.height = `${baseH * scale}px`;
+
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    this.width = baseW;
+    this.height = baseH;
 }
+
+
 
 
     formatTime(ms) {
@@ -275,42 +465,42 @@ updateEffects(delta) {
     }
     
     getRandomColor() {
-        return this.colors[Math.floor(Math.random() * this.colors.length)];
-    }
+        return Math.floor(Math.random() * this.colors.length);
+}
     
     init() {
-        console.log('Starting game...');
-        this.startGameLoop();
-    }
+    console.log('Starting game...');
+    this.startGameLoop();
+}
+
     
     createChain() {
-        this.chain.balls = [];
-        const ballCount = 18 + this.level * 2;
-        const spacing = 0.028; // Расстояние между шарами
-        
-        for (let i = 0; i < ballCount; i++) {
-            const position = i * spacing;
-            const point = this.getPathPoint(position);
-            
-            this.chain.balls.push({
-                position: position,
-                color: this.getRandomColor(),
-                radius: 20, // Чуть больше шары
-                index: i,
-                wobble: Math.random() * Math.PI * 2,
-                wobbleSpeed: 0.02 + Math.random() * 0.02
-            });
-            this.chain.headPosition = 0;
-            this.chain.freeze = 40; // кадров
+    this.chain.balls = [];
 
-        }
-        
-        this.chain.balls.sort((a, b) => a.position - b.position);
-        if (this.chain.balls.length > 0) {
-    this.chain.balls[this.chain.balls.length - 1].type = 'bug';
-}
-        this.chain.headPosition = this.chain.balls[0]?.position || 0;
+    const ballCount = 18 + this.level * 2;
+    let pos = -BALL_SPACING * ballCount;
+
+    for (let i = 0; i < ballCount; i++) {
+        this.chain.balls.push({
+            position: pos,
+            colorIndex: Math.floor(Math.random() * 5),
+            radius: BALL_RADIUS,
+            wobble: Math.random() * Math.PI * 2,
+            wobbleSpeed: 0.015 + Math.random() * 0.015
+        });
+
+        pos += BALL_SPACING;
     }
+
+    // 🐞 последний — жучок
+    this.chain.balls[this.chain.balls.length - 1].type = 'bug';
+
+    this.chain.headPosition = this.chain.balls[0].position;
+    this.chain.isAssembling = true;
+    this.chain.assembleProgress = this.chain.headPosition;
+    this.chain.freeze = 30;
+}
+
     
     startGameLoop() {
         // Останавливаем предыдущий цикл если есть
@@ -339,8 +529,17 @@ updateEffects(delta) {
         this.gameLoopId = requestAnimationFrame(gameLoop);
     }
     updateWhirlpool(delta) {
-    this.whirlpool.angle += 0.02 * delta;
+    const p = this.getPathPoint(LOSE_POSITION);
+
+    this.whirlpool.x = p.x;
+    this.whirlpool.y = p.y;
+
+    this.whirlpool.angle += 0.06 * delta;
+    this.whirlpool.pulse =
+        Math.sin(Date.now() * 0.004) * 6;
 }
+
+
     update(delta) {
     if (this.state !== GAME_STATE.PLAY) return;
 
@@ -348,6 +547,7 @@ updateEffects(delta) {
     this.updateChain(delta);
     this.updateProjectiles(delta);
     this.updateEffects(delta);
+    this.updateWhirlpool(delta);
 
     // ❤️ восстановление жизни
     if (
@@ -356,7 +556,7 @@ updateEffects(delta) {
     ) {
         this.lives++;
         this.lastLifeRestore = Date.now();
-        this.updateWhirlpool(delta);
+    
     }
 }
     
@@ -376,55 +576,81 @@ updateEffects(delta) {
     }
     
     updateChain(delta) {
-        if (this.chain.freeze > 0) {
-            this.chain.freeze--;
+    if (this.isSucking) {
+        this.updateWhirlpoolSuck(delta);
+        return;
+    }
+    for (const ball of this.chain.balls) {
+        ball.renderX = undefined;
+        ball.renderY = undefined;
+    }
+
+
+    /* ===============================
+       1. ФАЗА СБОРКИ (СТАРТ)
+    =============================== */
+    if (this.chain.isAssembling) {
+        this.chain.assembleProgress += 0.04 * delta; // ⬅ быстрее
+
+        for (let i = 0; i < this.chain.balls.length; i++) {
+            const target =
+                this.chain.assembleProgress -
+                i * BALL_SPACING;
+
+            this.chain.balls[i].position +=
+                (target - this.chain.balls[i].position) * 0.25;
+        }
+
+        // ✅ ВАЖНО: гарантированный выход
+        if (this.chain.assembleProgress >= 0) {
+            this.chain.isAssembling = false;
+            this.chain.headPosition = 0;
+        }
+
+        return;
+    }
+
+    /* ===============================
+       2. ЗАМОРОЗКА ПОСЛЕ ВЗРЫВА
+    =============================== */
+    if (this.chain.freeze > 0) {
+        this.chain.freeze--;
+        return;
+    }
+
+    /* ===============================
+       3. ОСНОВНОЕ ДВИЖЕНИЕ (ZUMA)
+    =============================== */
+
+    const speed = this.chain.speed * delta * 0.002;
+    this.chain.headPosition += speed;
+
+    for (let i = 0; i < this.chain.balls.length; i++) {
+        const ball = this.chain.balls[i];
+
+        if (i === 0) {
+            ball.position = this.chain.headPosition;
+        } else {
+            const prev = this.chain.balls[i - 1];
+            const target = prev.position - BALL_SPACING;
+
+            const diff = target - ball.position;
+
+            // 🔥 Zuma-style compression
+            ball.position += diff * 0.22;
+        }
+
+        ball.wobble += ball.wobbleSpeed * delta;
+
+        // проигрыш
+        if (ball.position >= LOSE_POSITION) {
+            this.triggerLose();
             return;
         }
-
-        // Движение цепочки
-        const speedMultiplier = 0.25;
-        this.chain.headPosition += (this.chain.speed / 200) * delta * speedMultiplier;
-        
-        // Обновляем каждый шар
-        for (let i = 0; i < this.chain.balls.length; i++) {
-            const ball = this.chain.balls[i];
-            
-            if (i === 0) {
-                ball.position = this.chain.headPosition;
-            } else {
-                const targetPos = this.chain.balls[i-1].position - 0.03;
-                const diff = targetPos - ball.position;
-                
-                if (Math.abs(diff) > 0.001) {
-                    ball.position += diff * 0.05 * delta * speedMultiplier;
-                }
-            }
-            
-            // Колебание
-            ball.wobble += ball.wobbleSpeed * delta;
-            
-            // Проверка конца пути
-            if (ball.position >= 0.85) {
-                this.loseLife();
-                this.chain.balls.splice(i, 1);
-                i--;
-            }
-        }
-        // 🌪 ПРОИГРЫШ ПРИ ДОСТИЖЕНИИ ВОДОВОРОТА
-        const head = this.chain.balls[0];
-        if (head) {
-            const p = this.getPathPoint(head.position);
-            const dx = p.x - this.whirlpool.x;
-            const dy = p.y - this.whirlpool.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-
-            if (dist < this.whirlpool.radius * 0.75) {
-                this.loseLife();
-                this.chain.balls = [];
     }
 }
 
-    }
+    
     
     loseLife() {
     if (this.lives <= 0) return;
@@ -452,6 +678,24 @@ updateEffects(delta) {
         }, 600);
     }
 }
+    triggerLose() {
+    if (this.gameOver || this.isSucking) return;
+
+    this.lives--;
+    this.lastLifeRestore = Date.now();
+
+    localStorage.setItem(
+        'zumaLives',
+        JSON.stringify({
+            lives: this.lives,
+            lastLost: Date.now()
+        })
+    );
+
+    this.startWhirlpoolSuck();
+}
+
+
 
 
     
@@ -478,12 +722,13 @@ updateEffects(delta) {
             proj.y < -proj.radius || proj.y > this.height + proj.radius ||
             proj.life <= 0) {
             this.chain.balls.unshift({
-                position: this.chain.balls[0]?.position - 0.03 || 0,
-                color: proj.color,
-                radius: 20,
+                position: this.chain.balls[0]?.position - BALL_SPACING || 0,
+                colorIndex: proj.colorIndex,
+                radius: BALL_RADIUS,
                 wobble: 0,
                 wobbleSpeed: 0.02
             });
+
 
 this.projectiles.splice(i, 1);
             
@@ -499,45 +744,51 @@ this.projectiles.splice(i, 1);
 }
 
 checkProjectileCollision(proj) {
-    // Ищем ближайший шар в цепочке
-    let closestBall = null;
-    let minDistance = Infinity;
-    
     for (let i = 0; i < this.chain.balls.length; i++) {
         const ball = this.chain.balls[i];
-        const point = this.getPathPoint(ball.position);
-        const dx = proj.x - point.x;
-        const dy = proj.y - point.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        
-        if (distance < (proj.radius + ball.radius) && distance < minDistance) {
-            minDistance = distance;
-            closestBall = { ball, index: i, point };
+        const p = this.getPathPoint(ball.position);
+
+        const dx = proj.x - p.x;
+        const dy = proj.y - p.y;
+        const dist = Math.hypot(dx, dy);
+
+        // 🔥 плотное попадание как в Zuma
+        if (dist < proj.radius + ball.radius + 4) {
+            return { ball, index: i, point: p };
         }
     }
-    
-    return closestBall ? { ball: closestBall.ball, index: closestBall.index, point: closestBall.point } : null;
+    return null;
 }
+
 
 handleProjectileCollision(projIndex, proj, collision) {
     // Создаем эффект взрыва
-    this.createExplosion(proj.x, proj.y, proj.color, 15);
+    this.createExplosion(
+        proj.x,
+        proj.y,
+        this.colors[proj.colorIndex],
+        15
+    );
+
     
     // Вставляем шар в цепочку
     const newBall = {
         position: collision.ball.position,
-        color: proj.color,
-        radius: 20,
-        index: collision.index,
+        colorIndex: proj.colorIndex, // ✅ ВАЖНО
+        radius: BALL_RADIUS,
         wobble: 0,
         wobbleSpeed: 0.02 + Math.random() * 0.02
     };
+
     
     // Вставляем шар перед тем, в который попали
     this.chain.balls.splice(collision.index, 0, newBall);
     
     // Удаляем снаряд
     this.projectiles.splice(projIndex, 1);
+
+    // Обновляем следующий шар в рту лягушки
+    this.frog.nextBall = this.getNextBallColor();
     
     // Проверяем совпадения
     this.checkForMatches(collision.index);
@@ -559,19 +810,19 @@ handleProjectileCollision(projIndex, proj, collision) {
 checkForMatches(startIndex) {
     if (startIndex < 0 || startIndex >= this.chain.balls.length) return;
     
-    const color = this.chain.balls[startIndex].color;
+    const color = this.chain.balls[startIndex].colorIndex;
     let matches = [startIndex];
     
     // Проверяем влево
     for (let i = startIndex - 1; i >= 0; i--) {
-        if (this.chain.balls[i].color === color) {
+        if (this.chain.balls[i].colorIndex === color) {
             matches.unshift(i);
         } else break;
     }
     
     // Проверяем вправо
     for (let i = startIndex + 1; i < this.chain.balls.length; i++) {
-        if (this.chain.balls[i].color === color) {
+        if (this.chain.balls[i].colorIndex === color) {
             matches.push(i);
         } else break;
     }
@@ -609,7 +860,7 @@ removeMatches(matches) {
         const point = this.getPathPoint(ball.position);
         
         // Создаем эффект взрыва
-        this.createExplosion(point.x, point.y, ball.color, 25);
+        this.createExplosion(point.x, point.y, this.colors[ball.colorIndex], 25);
         
         // Удаляем шар
         this.chain.balls.splice(index, 1);
@@ -621,18 +872,22 @@ removeMatches(matches) {
     }
     
     // Проверяем конец уровня
-    if (this.chain.balls.length === 0) {
+    if (
+        this.chain.balls.length === 1 &&
+        this.chain.balls[0].type === 'bug'
+    ) {
         this.state = GAME_STATE.WIN;
-        this.levelUp();
     }
+
+
 }
 
 levelUp() {
     this.level++;
     this.lives = Math.min(this.lives + 1, 10); // Добавляем жизнь, но не больше 10
     
-    // Увеличиваем скорость
-    this.chain.speed = 0.25 + (this.level * 0.015);
+    // Увеличиваем 
+    this.chain.speed = 0.15 + (this.level * 0.015);
     
     // Создаем новую цепочку
     this.createChain();
@@ -651,111 +906,127 @@ levelUp() {
 drawChain() {
     for (let i = 0; i < this.chain.balls.length; i++) {
         const ball = this.chain.balls[i];
-        const point = this.getPathPoint(ball.position);
+        const x = ball.renderX ?? this.getPathPoint(ball.position).x;
+        const y = ball.renderY ?? this.getPathPoint(ball.position).y;
 
         const wobbleX = Math.sin(ball.wobble) * 2;
         const wobbleY = Math.cos(ball.wobble) * 2;
 
-        const x = point.x + wobbleX;
-        const y = point.y + wobbleY;
-
-        // 🐞 ЕСЛИ ЭТО ЖУЧОК — РИСУЕМ ЕГО
+        // 🐞 Жучок
         if (ball.type === 'bug') {
-            this.drawBug(x, y, ball.radius);
-        } 
-        // ⚪ ОБЫЧНЫЙ ШАР
-        else {
-            this.drawShinyBall(x, y, ball.radius, ball.color);
+            this.drawBug(x + wobbleX, y + wobbleY, ball.radius, ball);
+        } else {
+            this.drawBallSprite(
+                x + wobbleX,
+                y + wobbleY,
+                ball.radius,
+                ball.colorIndex ?? 0
+            );
         }
     }
 }
 
-drawBug(x, y, r) {
-    // Тело
-    this.ctx.fillStyle = ART.colors.bugRed;
-    this.ctx.beginPath();
-    this.ctx.arc(x, y, r, 0, Math.PI * 2);
-    this.ctx.fill();
 
-    // Линия
-    this.ctx.strokeStyle = '#000';
-    this.ctx.lineWidth = 2;
-    this.ctx.beginPath();
-    this.ctx.moveTo(x, y - r);
-    this.ctx.lineTo(x, y + r);
-    this.ctx.stroke();
+drawBug(x, y, r, ball) {
+    if (!ASSETS.ready) return;
 
-    // Точки
-    this.ctx.beginPath();
-    this.ctx.arc(x - 6, y - 4, 3, 0, Math.PI * 2);
-    this.ctx.arc(x + 6, y + 4, 3, 0, Math.PI * 2);
-    this.ctx.fillStyle = '#000';
-    this.ctx.fill();
-}    
-drawShinyBall(x, y, r, color) {
+    const frameSize = 128;
+    const totalFrames = 20;
+
+    if (ball.bugFrame === undefined) ball.bugFrame = 0;
+
+    ball.bugFrame += 0.15;
+    const frame = Math.floor(ball.bugFrame) % totalFrames;
+
+    const scale = (r * 200) / frameSize;
+
+    this.ctx.drawImage(
+        ASSETS.bug,
+        frame * frameSize, 0, frameSize, frameSize,
+        x - r, y - r,
+        frameSize * scale, frameSize * scale
+    );
+}
+    drawShinyBall(x, y, r, color = '#4af') {
     const ctx = this.ctx;
 
-    // Тень
-    ctx.fillStyle = 'rgba(0,0,0,0.25)';
-    ctx.beginPath();
-    ctx.arc(x + 3, y + 3, r, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Градиент (объем)
-    const g = ctx.createRadialGradient(
+    // основной шар
+    const grad = ctx.createRadialGradient(
         x - r * 0.3, y - r * 0.3, r * 0.2,
         x, y, r
     );
-    g.addColorStop(0, '#FFFFFF');
-    g.addColorStop(0.3, color);
-    g.addColorStop(1, this.darkenColor(color, 25));
+    grad.addColorStop(0, '#fff');
+    grad.addColorStop(0.3, color);
+    grad.addColorStop(1, '#000');
 
-    ctx.fillStyle = g;
+    ctx.fillStyle = grad;
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fill();
 
-    // Блик
-    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    // блик
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
     ctx.beginPath();
-    ctx.arc(x - r * 0.3, y - r * 0.3, r * 0.25, 0, Math.PI * 2);
+    ctx.arc(
+        x - r * 0.35,
+        y - r * 0.35,
+        r * 0.25,
+        0,
+        Math.PI * 2
+    );
     ctx.fill();
 }
 
+   
+drawBallSprite(x, y, r, colorIndex = 0) {
+    if (!ASSETS.ready || !BALL_SPRITE.ready) return;
+
+    const fw = BALL_SPRITE.frameWidth;
+    const fh = BALL_SPRITE.frameHeight;
+    const cols = BALL_SPRITE.cols;
+    
+    if (!Number.isInteger(colorIndex)) {
+        console.warn('⚠️ Invalid colorIndex:', colorIndex);
+    }
+
+    // 🔢 как в Python:
+    // index → (row, col)
+    const col = colorIndex % cols;
+    const row = Math.floor(colorIndex / cols);
+
+    const sx = col * fw;
+    const sy = row * fh;
+
+    const size = r * 2;
+
+    this.ctx.drawImage(
+        ASSETS.balls,
+        sx, sy, fw, fh,
+        x - r, y - r,
+        size, size
+    );
+}
+
+
+
+
 drawProjectiles() {
     for (const proj of this.projectiles) {
-        // След
+        // след можно оставить через fillStyle, но можно и убрать
         for (let i = 0; i < proj.trail.length; i++) {
-            const point = proj.trail[i];
-            const alpha = i / proj.trail.length * 0.3;
-            
-            // ФИКС: правильное создание цвета с альфа-каналом
-            const color = proj.color;
-            let rgbaColor;
-            
-            if (color.startsWith('#')) {
-                // HEX в RGBA
-                const r = parseInt(color.slice(1, 3), 16);
-                const g = parseInt(color.slice(3, 5), 16);
-                const b = parseInt(color.slice(5, 7), 16);
-                rgbaColor = `rgba(${r}, ${g}, ${b}, ${alpha})`;
-            } else if (color.startsWith('rgb')) {
-                // RGB в RGBA
-                rgbaColor = color.replace(')', `, ${alpha})`).replace('rgb', 'rgba');
-            } else {
-                rgbaColor = `rgba(255, 255, 255, ${alpha})`; // fallback
-            }
-            
-            this.ctx.fillStyle = rgbaColor;
-            this.ctx.beginPath();
-            this.ctx.arc(point.x, point.y, proj.radius * 0.7, 0, Math.PI * 2);
-            this.ctx.fill();
+            const p = proj.trail[i];
+            const alpha = (i / proj.trail.length) * 0.25;
+            this.ctx.globalAlpha = alpha;
+            this.drawBallSprite(p.x, p.y, proj.radius, proj.colorIndex);
         }
-        
-        // Основной шар
-        this.drawShinyBall(proj.x, proj.y, proj.radius, proj.color);
+
+        // основной шар
+        this.ctx.globalAlpha = 1;
+        this.drawBallSprite(proj.x, proj.y, proj.radius, proj.colorIndex);
     }
 }
+
+
 
 drawEffects() {
     // Частицы
@@ -808,7 +1079,7 @@ drawEffects() {
 }
 
 drawNextBall() {
-    if (!this.frog.nextBall) return;
+    if (!Number.isInteger(this.frog.nextBall)) return;
 
     const x = this.width - 70;
     const y = 60;
@@ -1047,7 +1318,7 @@ drawAim() {
         this.ctx.fill();
 
         // 🎯 СЛЕДУЮЩИЙ ШАР ВО РТУ
-if (this.frog.nextBall) {
+if (this.frog.nextBall != null) {
     const mouthX = 58;
     const mouthY = 0;
 
@@ -1058,13 +1329,14 @@ if (this.frog.nextBall) {
     this.ctx.fill();
 
     // шар
-    this.drawShinyBall(
+    this.drawBallSprite(
         mouthX,
         mouthY,
         11,
         this.frog.nextBall
     );
 }
+
 
     }
     
@@ -1094,6 +1366,15 @@ if (this.frog.nextBall) {
             this.ctx.lineTo(this.chain.path[i].x, this.chain.path[i].y);
         }
         this.ctx.stroke();
+
+        const losePoint = this.getPathPoint(LOSE_POSITION);
+
+        this.ctx.strokeStyle = 'rgba(255,80,80,0.8)';
+        this.ctx.lineWidth = 4;
+        this.ctx.beginPath();
+        this.ctx.arc(losePoint.x, losePoint.y, 26, 0, Math.PI * 2);
+        this.ctx.stroke();
+
         
         // Берега ручейка
         this.ctx.strokeStyle = '#558B2F';
@@ -1118,45 +1399,31 @@ if (this.frog.nextBall) {
         }
     }
     drawWhirlpool() {
-    const { x, y, radius, angle } = this.whirlpool;
-    const ctx = this.ctx;
+    if (!ASSETS.ready) return;
 
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(angle);
+    const { x, y, radius } = this.whirlpool;
 
-    // Внешний круг
-    const outer = ctx.createRadialGradient(0, 0, radius * 0.3, 0, 0, radius);
-    outer.addColorStop(0, 'rgba(120,180,190,0.9)');
-    outer.addColorStop(1, 'rgba(40,90,110,0.9)');
+    const frameSize = 256;
+    const frames = 4;
 
-    ctx.fillStyle = outer;
-    ctx.beginPath();
-    ctx.arc(0, 0, radius, 0, Math.PI * 2);
-    ctx.fill();
+    if (!this.whirlpool.frame) this.whirlpool.frame = 0;
+    this.whirlpool.frame += 0.12;
 
-    // Спираль
-    ctx.strokeStyle = 'rgba(220,245,255,0.6)';
-    ctx.lineWidth = 3;
+    const frame = Math.floor(this.whirlpool.frame) % frames;
 
-    ctx.beginPath();
-    for (let a = 0; a < Math.PI * 2.5; a += 0.2) {
-        const r = radius * (1 - a / (Math.PI * 2.5));
-        const px = Math.cos(a) * r;
-        const py = Math.sin(a) * r;
-        if (a === 0) ctx.moveTo(px, py);
-        else ctx.lineTo(px, py);
-    }
-    ctx.stroke();
+    const size = radius * 2.4;
 
-    // Центр
-    ctx.fillStyle = 'rgba(10,30,40,0.9)';
-    ctx.beginPath();
-    ctx.arc(0, 0, radius * 0.2, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.restore();
+    this.ctx.drawImage(
+        ASSETS.whirlpool,
+        frame * frameSize, 0, frameSize, frameSize,
+        x - size / 2,
+        y - size / 2,
+        size,
+        size
+    );
 }
+
+
 
     drawGameOverScreen() {
         // Фон
@@ -1214,45 +1481,56 @@ if (this.frog.nextBall) {
     // как в предыдущей версии, но используют новую графику
     
     shoot() {
-        if (!this.frog.nextBall || this.gameOver || this.isPaused) return;
-        
-        const angle = this.frog.angle * Math.PI / 180;
-        const speed = 10;
-        
-        this.projectiles.push({
-            x: this.frog.x + Math.cos(angle) * 50,
-            y: this.frog.y + Math.sin(angle) * 50,
-            vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed,
-            color: this.frog.nextBall,
-            radius: 20,
-            life: 150,
-            trail: []
-        });
-        
-        // Анимация стрельбы
-        this.frog.state = 'shooting';
-        this.frog.mouthOpen = true;
-        this.frog.nextBall = this.getRandomColor();
-        
-        setTimeout(() => {
-            this.frog.mouthOpen = false;
-            this.frog.state = 'aiming';
-        }, 100);
-    }
+    // ❗ 0 — валидный цвет
+    if (!Number.isInteger(this.frog.nextBall)) return;
+
+    const angleRad = this.frog.angle * Math.PI / 180;
+    const speed = 14;
+
+    const colorIndex = this.frog.nextBall;
+
+    this.projectiles.push({
+        x: this.frog.x,
+        y: this.frog.y,
+
+        vx: Math.cos(angleRad) * speed,
+        vy: Math.sin(angleRad) * speed,
+
+        radius: BALL_RADIUS,
+        colorIndex,
+
+        trail: [],
+        life: 120
+    });
+
+    // следующий шар
+    this.frog.nextBall = this.randomColorIndex();
+    console.log('🎨 nextBall =', this.frog.nextBall);
+
+}
+    randomColorIndex() {
+    return Math.floor(Math.random() * BALL_COLORS_COUNT);
+}
+
+
+
     
     restartGame() {
-        console.log('Restarting game...');
-        this.resetGame();
-        this.gameOver = false;
-        this.shouldShowGameOver = false;
-        this.isPaused = false;
-        this.lastTime = 0;
-    }
-    startGame() {
+    console.log('Restarting game...');
+
+    const savedLives = this.lives; // ← сохраняем жизни
+
     this.resetGame();
+
+    this.lives = savedLives; // ← возвращаем уменьшенные жизни
+
+    this.gameOver = false;
+    this.isPaused = false;
+    this.lastTime = 0;
+
     this.state = GAME_STATE.PLAY;
 }
+
     clear() {
     this.ctx.clearRect(0, 0, this.width, this.height);
 }
@@ -1290,28 +1568,74 @@ if (this.frog.nextBall) {
 
     // Прицел
     this.drawAim();
+        
+    if (this.isTutorial) {
+        this.drawTutorialHint();
+    }
+
+}
+    drawTutorialHint() {
+    const step = this.tutorialSteps[this.currentTutorialStep];
+    if (!step) return;
+
+    if (step.condition()) {
+        step.shown = true;
+        this.currentTutorialStep++;
+        return;
+    }
+
+    const ctx = this.ctx;
+    ctx.save();
+
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.beginPath();
+    ctx.roundRect(
+        this.width / 2 - 220,
+        this.height - 150,
+        440,
+        90,
+        20
+    );
+    ctx.fill();
+
+    ctx.fillStyle = '#2E7D32';
+    ctx.font = 'bold 22px Nunito, Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    const lines = step.text.split('\n');
+    lines.forEach((l, i) => {
+        ctx.fillText(
+            l,
+            this.width / 2,
+            this.height - 120 + i * 26
+        );
+    });
+
+    ctx.restore();
 }
 
-    drawMenu() {
-    this.ctx.fillStyle = '#E3F2FD';
-    this.ctx.fillRect(0, 0, this.width, this.height);
 
-    this.ctx.fillStyle = '#2E7D32';
-    this.ctx.font = 'bold 56px Nunito, Arial';
-    this.ctx.textAlign = 'center';
-    this.ctx.fillText('🐸 ZUMA FROG', this.width / 2, this.height / 2 - 60);
 
-    this.ctx.font = '28px Nunito, Arial';
-    this.ctx.fillText('Нажмите, чтобы начать', this.width / 2, this.height / 2 + 20);
-}
     drawWinScreen() {
     this.ctx.fillStyle = 'rgba(255,255,255,0.85)';
     this.ctx.fillRect(0, 0, this.width, this.height);
+    if (this.isTutorial) {
+    this.ctx.fillText(
+        'Отлично! Ты готов 🐸✨',
+        this.width / 2,
+        this.height / 2 + 70
+    );
+}
+
 
     this.ctx.fillStyle = '#388E3C';
     this.ctx.font = 'bold 52px Nunito, Arial';
     this.ctx.textAlign = 'center';
     this.ctx.fillText('ПОБЕДА 🌸', this.width / 2, this.height / 2 - 40);
+    this.isTutorial = false;
+
 
     this.ctx.font = '26px Nunito, Arial';
     this.ctx.fillText('Нажмите для следующего уровня', this.width / 2, this.height / 2 + 30);
@@ -1331,10 +1655,6 @@ if (this.frog.nextBall) {
 }
 
     handleClick() {
-    if (this.state === GAME_STATE.MENU) {
-        this.state = GAME_STATE.PLAY;
-        return;
-    }
 
     if (this.state === GAME_STATE.WIN) {
         this.levelUp();
@@ -1344,9 +1664,10 @@ if (this.frog.nextBall) {
 
     if (this.state === GAME_STATE.LOSE) {
         this.restartGame();
-        this.state = GAME_STATE.MENU;
+        this.state = GAME_STATE.PLAY;
         return;
     }
+
 
     this.shoot();
 }
@@ -1354,10 +1675,6 @@ if (this.frog.nextBall) {
     this.clear();
 
     switch (this.state) {
-        case GAME_STATE.MENU:
-            this.drawMenu();
-            break;
-
         case GAME_STATE.PLAY:
             this.drawGame();
             this.drawLivesUI();
