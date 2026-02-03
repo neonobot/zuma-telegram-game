@@ -89,6 +89,10 @@ const BALL_COLORS_COUNT = 5;
 class ZumaGame {
     constructor(canvasId) {
     console.log('Creating game instance...');
+        
+    this.frog.targetX = this.frog.x;
+    this.frog.targetY = this.frog.y;
+
 
     this.canvas = document.getElementById(canvasId);
     if (!this.canvas) {
@@ -229,6 +233,9 @@ this.currentTutorialStep = 0;
 
         console.log('Game reset');
     }
+    
+
+    
     startWhirlpoolSuck() {
     if (this.isSucking) return;
 
@@ -1141,11 +1148,10 @@ drawAim() {
     if (this.gameOver || this.isPaused || this.state !== GAME_STATE.PLAY) return;
 
     const angle = this.frog.angle * Math.PI / 180;
-
     const startX = this.frog.x;
     const startY = this.frog.y;
 
-    // 👉 максимальная длина — до начала спирали
+    // рисуем "дорожку" как раньше
     const firstPoint = this.chain.path[0];
     const dx = firstPoint.x - startX;
     const dy = firstPoint.y - startY;
@@ -1154,28 +1160,28 @@ drawAim() {
     this.ctx.strokeStyle = 'rgba(255,255,255,0.6)';
     this.ctx.lineWidth = 2;
     this.ctx.setLineDash([6, 4]);
-
     this.ctx.beginPath();
     this.ctx.moveTo(startX, startY);
 
     const steps = Math.floor(maxLength / 20);
     let x = startX;
     let y = startY;
-
     for (let i = 0; i < steps; i++) {
         x += Math.cos(angle) * 20;
         y += Math.sin(angle) * 20;
         this.ctx.lineTo(x, y);
     }
-
     this.ctx.stroke();
     this.ctx.setLineDash([]);
 
-    // кружок на конце
+    // 👉 Улучшение: ставим кружок **не в конце линии**, а прямо на цели
+    const targetX = this.frog.targetX ?? x;
+    const targetY = this.frog.targetY ?? y;
+
     this.ctx.strokeStyle = '#FFB74D';
     this.ctx.lineWidth = 3;
     this.ctx.beginPath();
-    this.ctx.arc(x, y, 14, 0, Math.PI * 2);
+    this.ctx.arc(targetX, targetY, 14, 0, Math.PI * 2);
     this.ctx.stroke();
 }
 
