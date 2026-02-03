@@ -571,19 +571,25 @@ updateEffects(delta) {
 }
     
     updateFrog(delta) {
-        // Анимация улыбки
-        this.frog.smile = Math.sin(Date.now() * 0.002) * 0.3;
-        
-        // Моргание
-        this.frog.blinkTimer += delta;
-        if (this.frog.blinkTimer > 300) {
-            this.frog.blinkTimer = 0;
-            this.frog.state = 'blinking';
-            setTimeout(() => {
-                if (this.frog.state === 'blinking') this.frog.state = 'idle';
-            }, 150);
-        }
+    // если есть цель
+    if (this.frog.targetX != null && this.frog.targetY != null) {
+        const dx = this.frog.targetX - this.frog.x;
+        const dy = this.frog.targetY - this.frog.y;
+        this.frog.angle = Math.atan2(dy, dx) * 180 / Math.PI;
     }
+
+    // Моргание и улыбка (оставляем как есть)
+    this.frog.smile = Math.sin(Date.now() * 0.002) * 0.3;
+    this.frog.blinkTimer += delta;
+    if (this.frog.blinkTimer > 300) {
+        this.frog.blinkTimer = 0;
+        this.frog.state = 'blinking';
+        setTimeout(() => {
+            if (this.frog.state === 'blinking') this.frog.state = 'idle';
+        }, 150);
+    }
+}
+
     
     updateChain(delta) {
     if (this.isSucking) {
