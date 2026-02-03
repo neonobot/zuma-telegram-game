@@ -576,24 +576,40 @@ updateEffects(delta) {
 }
     
     updateFrog(delta) {
-    // если есть цель
-    if (this.frog.targetX != null && this.frog.targetY != null) {
-        const dx = this.frog.targetX - this.frog.x;
-        const dy = this.frog.targetY - this.frog.y;
-        this.frog.angle = Math.atan2(dy, dx) * 180 / Math.PI;
+    const frog = this.frog;
+
+    if (frog.targetX != null && frog.targetY != null) {
+        // Вектор к цели
+        const dx = frog.targetX - frog.x;
+        const dy = frog.targetY - frog.y;
+
+        // Расстояние
+        const dist = Math.hypot(dx, dy);
+
+        // Угол лягушки
+        frog.angle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+        // Плавное движение к цели
+        const maxStep = 0.12 * delta; // скорость движения
+        const step = Math.min(dist, maxStep * dist); // ограничиваем шаг
+
+        frog.x += dx * step;
+        frog.y += dy * step;
     }
 
-    // Моргание и улыбка (оставляем как есть)
-    this.frog.smile = Math.sin(Date.now() * 0.002) * 0.3;
-    this.frog.blinkTimer += delta;
-    if (this.frog.blinkTimer > 300) {
-        this.frog.blinkTimer = 0;
-        this.frog.state = 'blinking';
+    // Анимация моргания и улыбки
+    frog.smile = Math.sin(Date.now() * 0.002) * 0.3;
+    frog.blinkTimer += delta;
+
+    if (frog.blinkTimer > 300) {
+        frog.blinkTimer = 0;
+        frog.state = 'blinking';
         setTimeout(() => {
-            if (this.frog.state === 'blinking') this.frog.state = 'idle';
+            if (frog.state === 'blinking') frog.state = 'idle';
         }, 150);
     }
 }
+
 
     
     updateChain(delta) {
