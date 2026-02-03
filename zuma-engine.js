@@ -107,6 +107,15 @@ class ZumaGame {
 
     this.state = GAME_STATE.PLAY;
         
+    this.frog = {
+        x: this.width / 2,
+        y: this.height / 2,
+        angle: -Math.PI / 2,   // смотрит вверх
+        shootOffset: 42,       // расстояние до рта
+        nextBall: this.getNextBallColor()
+    };
+
+        
         this.tutorialSteps = [
     {
         text: 'Проведи пальцем,\nчтобы прицелиться',
@@ -1174,21 +1183,27 @@ drawAim() {
 }
 
     drawFrog() {
-        const frog = this.frog;
-        
-        // Лист кувшинки под лягушкой
-        this.drawLilyPad(frog.x, frog.y + 15);
-        
-        // Сохраняем контекст для вращения
-        this.ctx.save();
-        this.ctx.translate(frog.x, frog.y);
-        this.ctx.rotate(frog.angle * Math.PI / 180);
-        
-        // Улучшенное тело лягушки
-        this.drawDetailedFrog();
-        
-        this.ctx.restore();
-    }
+    const ctx = this.ctx;
+
+    ctx.save();
+    ctx.translate(this.frog.x, this.frog.y);
+    ctx.rotate(this.frog.angle);
+
+    // тело (заглушка)
+    ctx.fillStyle = '#6fcf97';
+    ctx.beginPath();
+    ctx.arc(0, 0, 34, 0, Math.PI * 2);
+    ctx.fill();
+
+    // рот (ориентир)
+    ctx.fillStyle = '#2f7d5b';
+    ctx.beginPath();
+    ctx.arc(this.frog.shootOffset, 0, 8, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+}
+
     
     drawLilyPad(x, y) {
     // 🌑 Тень под кувшинкой
@@ -1491,33 +1506,25 @@ if (this.frog.nextBall != null) {
     // как в предыдущей версии, но используют новую графику
     
     shoot() {
-    // ❗ 0 — валидный цвет
-    if (!Number.isInteger(this.frog.nextBall)) return;
+    if (this.state !== 'PLAY') return;
 
-    const angleRad = this.frog.angle * Math.PI / 180;
-    const speed = 14;
+    const a = this.frog.angle;
 
-    const colorIndex = this.frog.nextBall;
+    const x = this.frog.x + Math.cos(a) * this.frog.shootOffset;
+    const y = this.frog.y + Math.sin(a) * this.frog.shootOffset;
 
     this.projectiles.push({
-        x: this.frog.x,
-        y: this.frog.y,
-
-        vx: Math.cos(angleRad) * speed,
-        vy: Math.sin(angleRad) * speed,
-
+        x,
+        y,
+        angle: a,
+        speed: 18,
         radius: BALL_RADIUS,
-        colorIndex,
-
-        trail: [],
-        life: 120
+        color: this.frog.nextBall
     });
 
-    // следующий шар
-    this.frog.nextBall = this.randomColorIndex();
-    console.log('🎨 nextBall =', this.frog.nextBall);
-
+    this.frog.nextBall = this.getNextBallColor();
 }
+
     randomColorIndex() {
     return Math.floor(Math.random() * BALL_COLORS_COUNT);
 }
