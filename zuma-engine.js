@@ -31,6 +31,15 @@ ASSETS.balls.src = './assets/images/balls.png';
 ASSETS.bug.src = './assets/images/bug.png';
 ASSETS.whirlpool.src = './assets/images/whirlpool.png';
 
+const BALL_SPRITE = {
+    frameWidth: 96,
+    frameHeight: 96,
+    cols: 0,
+    rows: 0,
+    ready: false
+};
+
+
 let assetsLoaded = 0;
 Object.values(ASSETS).forEach(img => {
     if (!(img instanceof Image)) return;
@@ -40,6 +49,23 @@ Object.values(ASSETS).forEach(img => {
             ASSETS.ready = true;
             console.log('✅ All assets loaded');
         }
+        if (ASSETS.balls.complete) {
+    BALL_SPRITE.cols = Math.floor(
+        ASSETS.balls.width / BALL_SPRITE.frameWidth
+    );
+    BALL_SPRITE.rows = Math.floor(
+        ASSETS.balls.height / BALL_SPRITE.frameHeight
+    );
+    BALL_SPRITE.ready = true;
+
+    console.log(
+        '🎨 Ball sprite sheet:',
+        BALL_SPRITE.cols,
+        'x',
+        BALL_SPRITE.rows
+    );
+}
+
     };
 });
 
@@ -937,21 +963,30 @@ drawBug(x, y, r, ball) {
 
    
 drawBallSprite(x, y, r, colorIndex = 0) {
-    if (!ASSETS.ready) return;
+    if (!ASSETS.ready || !BALL_SPRITE.ready) return;
 
-    const cols = 6; // количество шариков в спрайте по горизонтали
-    const frameWidth = ASSETS.balls.width / cols;
-    const frameHeight = ASSETS.balls.height;
+    const fw = BALL_SPRITE.frameWidth;
+    const fh = BALL_SPRITE.frameHeight;
+    const cols = BALL_SPRITE.cols;
 
-    const scale = (r * 2) / frameWidth;
+    // 🔢 как в Python:
+    // index → (row, col)
+    const col = colorIndex % cols;
+    const row = Math.floor(colorIndex / cols);
+
+    const sx = col * fw;
+    const sy = row * fh;
+
+    const size = r * 2;
 
     this.ctx.drawImage(
         ASSETS.balls,
-        colorIndex * frameWidth, 0, frameWidth, frameHeight,
+        sx, sy, fw, fh,
         x - r, y - r,
-        frameWidth * scale, frameHeight * scale
+        size, size
     );
 }
+
 
 
 
