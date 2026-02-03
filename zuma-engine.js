@@ -579,28 +579,25 @@ updateEffects(delta) {
     const frog = this.frog;
 
     if (frog.targetX != null && frog.targetY != null) {
-        // Вектор к цели
         const dx = frog.targetX - frog.x;
         const dy = frog.targetY - frog.y;
-
-        // Расстояние
         const dist = Math.hypot(dx, dy);
 
-        // Угол лягушки
+        if (dist > 0.5) { // минимальное движение
+            const speed = 0.25 * delta; // пикселей за тик
+            const moveX = (dx / dist) * Math.min(speed, dist);
+            const moveY = (dy / dist) * Math.min(speed, dist);
+
+            frog.x += moveX;
+            frog.y += moveY;
+        }
+
         frog.angle = Math.atan2(dy, dx) * 180 / Math.PI;
-
-        // Плавное движение к цели
-        const maxStep = 0.12 * delta; // скорость движения
-        const step = Math.min(dist, maxStep * dist); // ограничиваем шаг
-
-        frog.x += dx * step;
-        frog.y += dy * step;
     }
 
-    // Анимация моргания и улыбки
+    // анимация моргания и улыбки
     frog.smile = Math.sin(Date.now() * 0.002) * 0.3;
     frog.blinkTimer += delta;
-
     if (frog.blinkTimer > 300) {
         frog.blinkTimer = 0;
         frog.state = 'blinking';
