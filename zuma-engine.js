@@ -974,6 +974,10 @@ drawBallSprite(x, y, r, colorIndex = 0) {
     const fw = BALL_SPRITE.frameWidth;
     const fh = BALL_SPRITE.frameHeight;
     const cols = BALL_SPRITE.cols;
+    
+    if (!Number.isInteger(colorIndex)) {
+        console.warn('⚠️ Invalid colorIndex:', colorIndex);
+    }
 
     // 🔢 как в Python:
     // index → (row, col)
@@ -1467,24 +1471,27 @@ if (this.frog.nextBall) {
     // как в предыдущей версии, но используют новую графику
     
     shoot() {
-    if (this.frog.nextBall === undefined || this.gameOver || this.isPaused) return;
+    if (!this.frog.nextBall && this.frog.nextBall !== 0) return;
 
-    const angle = this.frog.angle * Math.PI / 180;
-    const speed = this.isTutorial ? 6 : 10;
+    const colorIndex = this.frog.nextBall ?? 0;
 
     this.projectiles.push({
-        x: this.frog.x + Math.cos(angle) * 50,
-        y: this.frog.y + Math.sin(angle) * 50,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed,
-        colorIndex: this.frog.nextBall, // ✅ ТОЛЬКО индекс
+        x: this.frog.x,
+        y: this.frog.y,
+        angle: this.frog.angle,
+        speed: 14,
         radius: BALL_RADIUS,
-        life: 150,
-        trail: []
+        colorIndex: colorIndex
     });
 
-    this.frog.nextBall = this.getRandomColor();
+    // сразу генерируем следующий
+    this.frog.nextBall = this.randomColorIndex();
 }
+    randomColorIndex() {
+    return Math.floor(Math.random() * this.colors.length);
+}
+
+
 
     
     restartGame() {
