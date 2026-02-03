@@ -89,7 +89,7 @@ const BALL_COLORS_COUNT = 5;
 class ZumaGame {
     constructor(canvasId) {
     console.log('Creating game instance...');
-        
+
     this.canvas = document.getElementById(canvasId);
     if (!this.canvas) {
         throw new Error('Canvas not found!');
@@ -189,8 +189,6 @@ this.currentTutorialStep = 0;
             mouthOpen: false,
             smile: 0 // Для анимации улыбки
         };
-        this.frog.targetX = this.frog.x;
-        this.frog.targetY = this.frog.y;
 
         const losePoint = this.getPathPoint(LOSE_POSITION);
 
@@ -231,9 +229,6 @@ this.currentTutorialStep = 0;
 
         console.log('Game reset');
     }
-    
-
-    
     startWhirlpoolSuck() {
     if (this.isSucking) return;
 
@@ -576,38 +571,19 @@ updateEffects(delta) {
 }
     
     updateFrog(delta) {
-    const frog = this.frog;
-
-    if (frog.targetX != null && frog.targetY != null) {
-        const dx = frog.targetX - frog.x;
-        const dy = frog.targetY - frog.y;
-        const dist = Math.hypot(dx, dy);
-
-        if (dist > 0.5) { // минимальное движение
-            const speed = 0.25 * delta; // пикселей за тик
-            const moveX = (dx / dist) * Math.min(speed, dist);
-            const moveY = (dy / dist) * Math.min(speed, dist);
-
-            frog.x += moveX;
-            frog.y += moveY;
+        // Анимация улыбки
+        this.frog.smile = Math.sin(Date.now() * 0.002) * 0.3;
+        
+        // Моргание
+        this.frog.blinkTimer += delta;
+        if (this.frog.blinkTimer > 300) {
+            this.frog.blinkTimer = 0;
+            this.frog.state = 'blinking';
+            setTimeout(() => {
+                if (this.frog.state === 'blinking') this.frog.state = 'idle';
+            }, 150);
         }
-
-        frog.angle = Math.atan2(dy, dx) * 180 / Math.PI;
     }
-
-    // анимация моргания и улыбки
-    frog.smile = Math.sin(Date.now() * 0.002) * 0.3;
-    frog.blinkTimer += delta;
-    if (frog.blinkTimer > 300) {
-        frog.blinkTimer = 0;
-        frog.state = 'blinking';
-        setTimeout(() => {
-            if (frog.state === 'blinking') frog.state = 'idle';
-        }, 150);
-    }
-}
-
-
     
     updateChain(delta) {
     if (this.isSucking) {
@@ -1159,10 +1135,11 @@ drawAim() {
     if (this.gameOver || this.isPaused || this.state !== GAME_STATE.PLAY) return;
 
     const angle = this.frog.angle * Math.PI / 180;
+
     const startX = this.frog.x;
     const startY = this.frog.y;
 
-    // рисуем "дорожку" как раньше
+    // 👉 максимальная длина — до начала спирали
     const firstPoint = this.chain.path[0];
     const dx = firstPoint.x - startX;
     const dy = firstPoint.y - startY;
@@ -1171,28 +1148,28 @@ drawAim() {
     this.ctx.strokeStyle = 'rgba(255,255,255,0.6)';
     this.ctx.lineWidth = 2;
     this.ctx.setLineDash([6, 4]);
+
     this.ctx.beginPath();
     this.ctx.moveTo(startX, startY);
 
     const steps = Math.floor(maxLength / 20);
     let x = startX;
     let y = startY;
+
     for (let i = 0; i < steps; i++) {
         x += Math.cos(angle) * 20;
         y += Math.sin(angle) * 20;
         this.ctx.lineTo(x, y);
     }
+
     this.ctx.stroke();
     this.ctx.setLineDash([]);
 
-    // 👉 Улучшение: ставим кружок **не в конце линии**, а прямо на цели
-    const targetX = this.frog.targetX ?? x;
-    const targetY = this.frog.targetY ?? y;
-
+    // кружок на конце
     this.ctx.strokeStyle = '#FFB74D';
     this.ctx.lineWidth = 3;
     this.ctx.beginPath();
-    this.ctx.arc(targetX, targetY, 14, 0, Math.PI * 2);
+    this.ctx.arc(x, y, 14, 0, Math.PI * 2);
     this.ctx.stroke();
 }
 
