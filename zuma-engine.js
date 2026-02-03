@@ -1309,7 +1309,7 @@ drawAim() {
         this.ctx.fill();
 
         // 🎯 СЛЕДУЮЩИЙ ШАР ВО РТУ
-if (this.frog.nextBall) {
+if (this.frog.nextBall != null) {
     const mouthX = 58;
     const mouthY = 0;
 
