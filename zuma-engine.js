@@ -82,6 +82,7 @@ const GAME_STATE = {
 };
 const BALL_RADIUS = 20;
 const BALL_SPACING = 0.008;
+const BALL_COLORS_COUNT = 5;
 
 
 
@@ -1495,6 +1496,9 @@ if (this.frog.nextBall) {
 
     // следующий шар
     this.frog.nextBall = this.randomColorIndex();
+}
+    randomColorIndex() {
+    return Math.floor(Math.random() * BALL_COLORS_COUNT);
 }
 
 
