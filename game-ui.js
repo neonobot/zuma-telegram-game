@@ -62,7 +62,7 @@ function updateFrogAim(clientX, clientY) {
     const MAX = Math.PI * 0.95;
     angle = Math.max(-MAX, Math.min(MAX, angle));
 
-    game.frog.angle = angle;
+    game.frog.angle = angle; // ✅ радианы
 }
 
 /* =========================
