@@ -150,7 +150,7 @@ window.addEventListener('DOMContentLoaded', () => {
     );
 
     // ===== GAME START =====
-    game = new ZumaGame(canvas);
+    game = new ZumaGame('gameCanvas');
     game.lives = loadLives();
     game.start();
 });
