@@ -107,16 +107,6 @@ class ZumaGame {
 
     this.state = GAME_STATE.PLAY;
         
-    this.frog = {
-        x: this.width / 2,
-        y: this.height / 2,
-        angle: -Math.PI / 2,
-        shootOffset: 42,
-        nextBall: null
-    };
-
-
-        
         this.tutorialSteps = [
     {
         text: 'Проведи пальцем,\nчтобы прицелиться',
@@ -192,7 +182,7 @@ this.currentTutorialStep = 0;
         this.frog = {
             x: this.width / 2,
             y: this.height / 2, // Центр экрана!
-            angle: -Math.PI / 2,
+            angle: -90,
             nextBall: this.getNextBallColor(),
             state: 'idle',
             blinkTimer: 0,
@@ -233,8 +223,6 @@ this.currentTutorialStep = 0;
         
         // Создаем цепочку
         this.createChain();
-        this.frog.nextBall = this.getNextBallColor();
-
         
         this.isSucking = false;
         this.suckTimer = 0;
@@ -257,23 +245,20 @@ this.currentTutorialStep = 0;
     }
 }
     getNextBallColor() {
-    if (!this.chain || !this.chain.balls || this.chain.balls.length === 0) {
-        return Math.floor(Math.random() * this.colors.length);
-    }
-
+    // собираем все цвета в цепочке кроме жучка
     const availableColors = this.chain.balls
         .filter(b => b.type !== 'bug')
         .map(b => b.colorIndex);
 
     if (availableColors.length === 0) {
+        // если шаров кроме жучка нет, возвращаем любой цвет
         return Math.floor(Math.random() * this.colors.length);
     }
 
-    return availableColors[
-        Math.floor(Math.random() * availableColors.length)
-    ];
+    // выбираем случайный из оставшихся
+    const randomIndex = Math.floor(Math.random() * availableColors.length);
+    return availableColors[randomIndex];
 }
-
 
     updateWhirlpoolSuck(delta) {
     this.whirlpool.angle += 0.18 * delta;
@@ -1149,7 +1134,7 @@ drawNextBall() {
 drawAim() {
     if (this.gameOver || this.isPaused || this.state !== GAME_STATE.PLAY) return;
 
-    const angle = this.frog.angle;
+    const angle = this.frog.angle * Math.PI / 180;
 
     const startX = this.frog.x;
     const startY = this.frog.y;
@@ -1189,27 +1174,21 @@ drawAim() {
 }
 
     drawFrog() {
-    const ctx = this.ctx;
-
-    ctx.save();
-    ctx.translate(this.frog.x, this.frog.y);
-    ctx.rotate(this.frog.angle);
-
-    // тело (заглушка)
-    ctx.fillStyle = '#6fcf97';
-    ctx.beginPath();
-    ctx.arc(0, 0, 34, 0, Math.PI * 2);
-    ctx.fill();
-
-    // рот (ориентир)
-    ctx.fillStyle = '#2f7d5b';
-    ctx.beginPath();
-    ctx.arc(this.frog.shootOffset, 0, 8, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.restore();
-}
-
+        const frog = this.frog;
+        
+        // Лист кувшинки под лягушкой
+        this.drawLilyPad(frog.x, frog.y + 15);
+        
+        // Сохраняем контекст для вращения
+        this.ctx.save();
+        this.ctx.translate(frog.x, frog.y);
+        this.ctx.rotate(frog.angle * Math.PI / 180);
+        
+        // Улучшенное тело лягушки
+        this.drawDetailedFrog();
+        
+        this.ctx.restore();
+    }
     
     drawLilyPad(x, y) {
     // 🌑 Тень под кувшинкой
@@ -1512,25 +1491,33 @@ if (this.frog.nextBall != null) {
     // как в предыдущей версии, но используют новую графику
     
     shoot() {
-    if (this.state !== 'PLAY') return;
+    // ❗ 0 — валидный цвет
+    if (!Number.isInteger(this.frog.nextBall)) return;
 
-    const a = this.frog.angle;
+    const angleRad = this.frog.angle * Math.PI / 180;
+    const speed = 14;
 
-    const x = this.frog.x + Math.cos(a) * this.frog.shootOffset;
-    const y = this.frog.y + Math.sin(a) * this.frog.shootOffset;
+    const colorIndex = this.frog.nextBall;
 
     this.projectiles.push({
-        x,
-        y,
-        angle: a,
-        speed: 18,
+        x: this.frog.x,
+        y: this.frog.y,
+
+        vx: Math.cos(angleRad) * speed,
+        vy: Math.sin(angleRad) * speed,
+
         radius: BALL_RADIUS,
-        color: this.frog.nextBall
+        colorIndex,
+
+        trail: [],
+        life: 120
     });
 
-    this.frog.nextBall = this.getNextBallColor();
-}
+    // следующий шар
+    this.frog.nextBall = this.randomColorIndex();
+    console.log('🎨 nextBall =', this.frog.nextBall);
 
+}
     randomColorIndex() {
     return Math.floor(Math.random() * BALL_COLORS_COUNT);
 }
