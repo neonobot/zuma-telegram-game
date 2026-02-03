@@ -4,7 +4,21 @@ const LIFE_RESTORE_TIME = 10 * 60 * 1000;
 const MAX_LIVES = 3;
 
 let game = null;
-const canvas = document.getElementById('gameCanvas');
+let canvas = null;
+
+window.addEventListener('DOMContentLoaded', () => {
+    canvas = document.getElementById('gameCanvas');
+
+    if (!canvas) {
+        console.error('Canvas not found in DOM');
+        return;
+    }
+
+    game = new ZumaGame(canvas);
+    game.lives = loadLives();
+    game.start();
+});
+
 
 /* =========================
    LIVES STORAGE
