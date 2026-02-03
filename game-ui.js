@@ -112,6 +112,7 @@ function updateFrogAim(clientX, clientY) {
     game.frog.angle = Math.max(-170, Math.min(170, game.frog.angle));
 }
 
+
 // мышь
 canvas.addEventListener('mousemove', e => {
     updateFrogAim(e.clientX, e.clientY);
@@ -143,3 +144,9 @@ canvas.addEventListener('touchend', () => {
         game.shoot();
     }
 });
+canvas.addEventListener('pointerdown', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    game.frog.targetX = (e.clientX - rect.left) * (canvas.width / rect.width);
+    game.frog.targetY = (e.clientY - rect.top) * (canvas.height / rect.height);
+});
+
