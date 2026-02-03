@@ -756,17 +756,23 @@ checkProjectileCollision(proj) {
 
 handleProjectileCollision(projIndex, proj, collision) {
     // Создаем эффект взрыва
-    this.createExplosion(proj.x, proj.y, proj.color, 15);
+    this.createExplosion(
+        proj.x,
+        proj.y,
+        this.colors[proj.colorIndex],
+        15
+    );
+
     
     // Вставляем шар в цепочку
     const newBall = {
         position: collision.ball.position,
-        color: proj.color,
-        radius: 20,
-        index: collision.index,
+        colorIndex: proj.colorIndex, // ✅ ВАЖНО
+        radius: BALL_RADIUS,
         wobble: 0,
         wobbleSpeed: 0.02 + Math.random() * 0.02
     };
+
     
     // Вставляем шар перед тем, в который попали
     this.chain.balls.splice(collision.index, 0, newBall);
@@ -844,7 +850,7 @@ removeMatches(matches) {
         const point = this.getPathPoint(ball.position);
         
         // Создаем эффект взрыва
-        this.createExplosion(point.x, point.y, ball.color, 25);
+        this.createExplosion(point.x, point.y, this.colors[ball.colorIndex], 25);
         
         // Удаляем шар
         this.chain.balls.splice(index, 1);
