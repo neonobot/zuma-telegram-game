@@ -1,4 +1,4 @@
-// zuma-engine.js - Версия 3.0 с улучшенной графикой
+// zuma-engine.js - Версия 4.0 с улучшенной графикой
 console.log('Zuma Frog Game Engine loading...');
 const ART = {
     colors: {
