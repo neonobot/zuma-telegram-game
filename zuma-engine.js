@@ -183,7 +183,7 @@ this.currentTutorialStep = 0;
             x: this.width / 2,
             y: this.height / 2, // Центр экрана!
             angle: -90,
-            nextBall: this.getRandomColor(),
+            nextBall: this.getNextBallColor(),
             state: 'idle',
             blinkTimer: 0,
             mouthOpen: false,
@@ -244,6 +244,22 @@ this.currentTutorialStep = 0;
         };
     }
 }
+    getNextBallColor() {
+    // собираем все цвета в цепочке кроме жучка
+    const availableColors = this.chain.balls
+        .filter(b => b.type !== 'bug')
+        .map(b => b.colorIndex);
+
+    if (availableColors.length === 0) {
+        // если шаров кроме жучка нет, возвращаем любой цвет
+        return Math.floor(Math.random() * this.colors.length);
+    }
+
+    // выбираем случайный из оставшихся
+    const randomIndex = Math.floor(Math.random() * availableColors.length);
+    return availableColors[randomIndex];
+}
+
     updateWhirlpoolSuck(delta) {
     this.whirlpool.angle += 0.18 * delta;
     const speed = 0.05 * delta;
@@ -780,6 +796,9 @@ handleProjectileCollision(projIndex, proj, collision) {
     
     // Удаляем снаряд
     this.projectiles.splice(projIndex, 1);
+
+    // Обновляем следующий шар в рту лягушки
+    this.frog.nextBall = this.getNextBallColor();
     
     // Проверяем совпадения
     this.checkForMatches(collision.index);
