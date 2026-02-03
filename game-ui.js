@@ -102,39 +102,45 @@ function updateFrogAim(clientX, clientY) {
     if (!game || game.state !== 'PLAY') return;
 
     const rect = canvas.getBoundingClientRect();
-    const x = (clientX - rect.left) * (canvas.width / rect.width);
-    const y = (clientY - rect.top) * (canvas.height / rect.height);
 
-    const dx = x - game.frog.x;
-    const dy = y - game.frog.y;
+    const mx = (clientX - rect.left) * (canvas.width / rect.width);
+    const my = (clientY - rect.top) * (canvas.height / rect.height);
 
-    game.frog.angle = Math.atan2(dy, dx) * 180 / Math.PI;
-    game.frog.angle = Math.max(-170, Math.min(170, game.frog.angle));
+    const dx = mx - game.frog.x;
+    const dy = my - game.frog.y;
+
+    let angle = Math.atan2(dy, dx);
+
+    // ограничение поворота как в Zuma
+    const MAX = Math.PI * 0.95;
+    angle = Math.max(-MAX, Math.min(MAX, angle));
+
+    game.frog.angle = angle;
 }
 
-
-// мышь
+// ===== MOUSE =====
 canvas.addEventListener('mousemove', e => {
     updateFrogAim(e.clientX, e.clientY);
 });
 
-// палец
-canvas.addEventListener('touchmove', e => {
-    e.preventDefault();
+canvas.addEventListener('mousedown', e => {
+    updateFrogAim(e.clientX, e.clientY);
+});
+
+canvas.addEventListener('mouseup', () => {
+    if (game && game.state === 'PLAY') {
+        game.shoot();
+    }
+});
+
+// ===== TOUCH =====
+canvas.addEventListener('touchstart', e => {
     const t = e.touches[0];
     updateFrogAim(t.clientX, t.clientY);
 }, { passive: false });
 
-let isDragging = false;
-
-canvas.addEventListener('touchstart', () => {
-    isDragging = false;
-});
-
 canvas.addEventListener('touchmove', e => {
     e.preventDefault();
-    isDragging = true;
-
     const t = e.touches[0];
     updateFrogAim(t.clientX, t.clientY);
 }, { passive: false });
